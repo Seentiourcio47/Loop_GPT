@@ -44,12 +44,12 @@
 
   /* Gradient text + accent ring */
   .text-gradient {
-    background: linear-gradient(100deg, #a78bfa, #22d3ee 60%, #e879f9);
+    background: linear-gradient(100deg, #e6b8a6, #c96442 60%, #d8846a);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
-  .accent-ring { box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 22px -6px rgba(139, 92, 246, 0.5); }
+  .accent-ring { box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.5); }
 
   /* Terminal / console block */
   .terminal {

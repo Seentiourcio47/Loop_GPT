@@ -53,18 +53,20 @@ module.exports = {
           700: '#1c1c2b',
           600: '#262637',
         },
+        // Calm, Claude-aligned accents (was neon). Terracotta primary + soft neutrals.
         neon: {
-          violet: '#8b5cf6',
-          indigo: '#6366f1',
-          cyan: '#22d3ee',
-          fuchsia: '#e879f9',
-          green: '#4ade80',
-          amber: '#fbbf24',
+          violet: '#c96442',
+          indigo: '#b5593a',
+          cyan: '#d8a08a',
+          fuchsia: '#c96442',
+          green: '#6ee7a0',
+          amber: '#e0a458',
         },
       },
       boxShadow: {
-        glow: '0 0 0 1px rgba(139,92,246,0.25), 0 0 24px -4px rgba(139,92,246,0.45)',
-        'glow-cyan': '0 0 0 1px rgba(34,211,238,0.25), 0 0 24px -6px rgba(34,211,238,0.4)',
+        // Soft neutral elevation instead of colored glow.
+        glow: '0 0 0 1px rgba(255,255,255,0.06), 0 10px 30px -12px rgba(0,0,0,0.6)',
+        'glow-cyan': '0 0 0 1px rgba(255,255,255,0.06), 0 10px 30px -12px rgba(0,0,0,0.6)',
         panel: '0 8px 40px -12px rgba(0,0,0,0.7)',
       },
       keyframes: {
