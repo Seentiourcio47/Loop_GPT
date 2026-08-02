@@ -232,7 +232,7 @@ export default function Home() {
         {sidebarOpen && (
           <motion.aside
             initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="fixed lg:relative inset-y-0 left-0 w-[264px] max-w-[82vw] shrink-0 glass-strong lg:glass border-r border-white/5 flex flex-col h-full z-40 lg:z-20"
+            className="fixed lg:relative inset-y-0 left-0 w-[264px] max-w-[82vw] shrink-0 glass-strong lg:glass border-r border-white/5 flex flex-col h-full z-40 lg:z-20 pt-[env(safe-area-inset-top)] lg:pt-0"
           >
             <div className="px-4 pt-4 pb-3 flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-violet to-neon-cyan flex items-center justify-center shadow-glow">
@@ -286,7 +286,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* ============ Center: chat ============ */}
-      <div className="flex-1 flex flex-col h-full min-w-0 relative">
+      <div className="flex-1 flex flex-col h-full min-w-0 relative pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-2 px-3 sm:px-4 h-12 border-b border-white/5 shrink-0">
           {!sidebarOpen && <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400"><PanelLeft size={17} /></button>}
           <span className="text-sm font-medium text-slate-300 truncate">{conversations.find((c) => c.id === currentConversationId)?.title || 'New session'}</span>
@@ -388,7 +388,7 @@ export default function Home() {
       <AnimatePresence initial={false}>
         {computerOpen && (
           <motion.aside initial={{ x: 400, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 400, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-            className="fixed lg:relative inset-y-0 right-0 z-40 lg:z-auto flex w-full max-w-[92vw] sm:max-w-[440px] lg:w-[380px] lg:max-w-none shrink-0 p-2.5 sm:p-3 h-full">
+            className="fixed lg:relative inset-y-0 right-0 z-40 lg:z-auto flex w-full max-w-[92vw] sm:max-w-[440px] lg:w-[380px] lg:max-w-none shrink-0 px-2.5 sm:px-3 lg:p-3 h-full pt-[max(0.625rem,env(safe-area-inset-top))] pb-[max(0.625rem,env(safe-area-inset-bottom))] lg:pt-3 lg:pb-3">
             <AgentComputer running={running} status={statusMsg} steps={liveSteps} artifacts={liveArtifacts} toolCount={toolCount} onClose={() => setComputerOpen(false)} />
           </motion.aside>
         )}
