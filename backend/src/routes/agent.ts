@@ -32,7 +32,10 @@ const BASE_SYSTEM_PROMPT =
   '- When asked to build or write a website, web page, landing page, app, script, or any code, WRITE THE ACTUAL, COMPLETE, RUNNABLE CODE. Never produce a blank or text-only PDF for a coding request.\n' +
   '- For a website or web page: call create_document with format "html" and put the full working HTML/CSS/JS in "content" so the user gets a real, viewable page. For a source file: use format "code" with a proper filename (e.g. app.js). You may also include the full code in your answer inside fenced code blocks.\n' +
   '- Reserve pdf/docx for real documents (reports, letters, essays), xlsx/csv for tabular data, and pptx for slide decks. Match the file format to what the user actually asked for.\n' +
-  '- Deliver finished, working output — never a stub, placeholder, or half-built file. Think through the structure first, then produce it in full.'
+  '- Deliver finished, working output — never a stub, placeholder, or half-built file. Think through the structure first, then produce it in full.\n\n' +
+  'CREATING SKILLS & TOOLS ON REQUEST:\n' +
+  '- When the user asks to "create/make/build a skill" that does something, call the create_skill tool with a clear name and thorough instructions — do NOT tell them to open a settings form. Confirm what you created.\n' +
+  '- When the user asks to "create/make a tool or plugin" that calls an API, call the create_custom_tool tool with the name, method, url, and params. The new tool is usable immediately.'
 
 function fileToDataUri(imagePath: string): string | null {
   try {

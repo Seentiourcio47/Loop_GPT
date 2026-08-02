@@ -17,14 +17,14 @@ export default function SettingsPanel({ onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         className="glass-strong rounded-2xl w-full max-w-2xl max-h-[86vh] flex flex-col overflow-hidden shadow-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-white/5">
           <h2 className="text-lg font-semibold text-gradient">Agent settings</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400"><X size={18} /></button>
         </div>
-        <div className="flex border-b border-white/5 text-sm overflow-x-auto">
+        <div className="shrink-0 flex border-b border-white/5 text-sm overflow-x-auto no-scrollbar">
           {([['model', 'Model', Sparkles], ['skills', 'Skills', Blocks], ['plugins', 'Plugins', Puzzle], ['builder', 'Builder', Hammer], ['connectors', 'Connectors', Plug], ['mcp', 'MCP', Cable], ['tools', 'Tools', Wrench]] as [Tab, string, any][]).map(([id, label, Icon]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 whitespace-nowrap border-b-2 transition ${tab === id ? 'border-neon-violet text-neon-violet' : 'border-transparent text-slate-500 hover:text-slate-200'}`}>
+              className={`shrink-0 flex items-center gap-1.5 px-4 py-2.5 whitespace-nowrap border-b-2 transition ${tab === id ? 'border-neon-violet text-neon-violet' : 'border-transparent text-slate-500 hover:text-slate-200'}`}>
               <Icon size={15} /> {label}
             </button>
           ))}

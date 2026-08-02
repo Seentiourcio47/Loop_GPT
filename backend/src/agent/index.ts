@@ -9,6 +9,7 @@ import { webFetchTool } from './tools/webFetch'
 import { currentTimeTool, calculatorTool } from './tools/utility'
 import { generateImageTool } from './tools/generateImage'
 import { createDocumentTool } from './tools/createDocument'
+import { createSkillTool, createCustomToolTool } from './tools/metaTools'
 import { mcpRegistry } from './mcp/mcpRegistry'
 import { connectorRegistry } from './connectors/connectorRegistry'
 import { pluginRegistry } from './plugins/pluginLoader'
@@ -21,6 +22,8 @@ const BUILTIN_TOOLS = [
   calculatorTool,
   generateImageTool,
   createDocumentTool,
+  createSkillTool,
+  createCustomToolTool,
 ]
 
 export function registerBuiltinTools() {

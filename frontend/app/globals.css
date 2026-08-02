@@ -73,3 +73,7 @@
     animation: shimmer 1.6s linear infinite;
   }
 }
+
+/* Hide scrollbar on horizontal tab strips while keeping scroll (used in settings). */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
