@@ -31,6 +31,9 @@ import settingsRoutes from './routes/settings'
 import modelsRoutes from './routes/models'
 import agentRoutes from './routes/agent'
 import telemetryRoutes from './routes/telemetry'
+import accountRoutes from './routes/account'
+import adminRoutes from './routes/admin'
+import { oauthRouter, mailRouter } from './routes/oauth'
 import { validateEnv } from './middleware/envValidation'
 import { rateLimiter } from './middleware/rateLimiter'
 import { errorLogger } from './middleware/errorLogger'
@@ -60,6 +63,8 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/auth', oauthRouter)
+app.use('/api/mail', mailRouter)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/models', modelsRoutes)
 app.use('/api/conversations', conversationRoutes)
@@ -67,6 +72,8 @@ app.use('/api/conversations', messageRoutes)
 app.use('/api/conversations', agentRoutes)
 app.use('/api/agent', agentRoutes)
 app.use('/api/telemetry', telemetryRoutes)
+app.use('/api/account', accountRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Root route
 app.get('/', (req, res) => {

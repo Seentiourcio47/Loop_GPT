@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Send, Plus, PanelLeft, Trash2, Edit2, Image as ImageIcon, Settings, Sparkles, X,
-  MessageSquare, Bot, Search, Wrench, FileDown, Loader2, Cpu, ChevronRight,
+  MessageSquare, Bot, Search, Wrench, FileDown, Loader2, Cpu, ChevronRight, CreditCard, ShieldCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { API_URL, authHeaders, getProviderSettings, type AgentMode } from '../lib/api'
+import { API_URL, authHeaders, getProviderSettings, getStoredUser, type AgentMode } from '../lib/api'
 import { runAgentStream, type ArtifactRef } from '../lib/stream'
 import AgentComputer, { type LiveStep } from '../components/AgentComputer'
 import SettingsPanel from '../components/SettingsPanel'
@@ -228,9 +229,19 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <button onClick={() => setShowSettings(true)} className="m-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 border border-white/5">
-              <Settings size={15} /> Agent settings
-            </button>
+            <div className="m-3 mt-0 space-y-1">
+              <button onClick={() => setShowSettings(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 border border-white/5">
+                <Settings size={15} /> Agent settings
+              </button>
+              <Link href="/account" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 border border-white/5">
+                <CreditCard size={15} /> Account & billing
+              </Link>
+              {getStoredUser()?.role === 'admin' && (
+                <Link href="/admin" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neon-violet hover:bg-white/5 border border-neon-violet/20">
+                  <ShieldCheck size={15} /> Admin portal
+                </Link>
+              )}
+            </div>
           </motion.aside>
         )}
       </AnimatePresence>

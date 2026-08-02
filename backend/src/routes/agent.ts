@@ -20,6 +20,7 @@ import { connectorRegistry } from '../agent/connectors/connectorRegistry'
 import { pluginRegistry } from '../agent/plugins/pluginLoader'
 import { configStore } from '../agent/configStore'
 import { agentConfig } from '../agent/config'
+import { checkCredits, recordUsage, estimateTokens, type UsageKind } from '../services/billing'
 
 const router = express.Router()
 
@@ -64,6 +65,18 @@ router.post('/:conversationId/stream', authenticateToken, async (req, res) => {
 
   if (content && detectExtractionAttempt(content)) {
     console.warn(`[guardrails] possible prompt-extraction attempt from user ${userId}`)
+  }
+
+  // Credit metering: block the turn up-front if the user is out of credits.
+  // Admins and `unlimited` (team-voucher) users always pass; no-DB = permissive.
+  const meterKind: UsageKind = mode === 'research' ? 'research' : mode === 'chat' ? 'chat' : 'agent'
+  try {
+    const credit = await checkCredits(userId, meterKind)
+    if (!credit.ok) {
+      return res.status(402).json({ error: credit.reason || 'Out of credits.', code: 'OUT_OF_CREDITS' })
+    }
+  } catch (e: any) {
+    console.error('Credit check error:', e?.message)
   }
 
   // Resolve/create the conversation and persist the user message BEFORE opening
@@ -165,6 +178,17 @@ router.post('/:conversationId/stream', authenticateToken, async (req, res) => {
       // Redact model/provider from client-facing metadata (guardrails).
       metadata: sanitizeMetadata({ ...finalMetadata, artifacts, provider, model }),
     })
+
+    // Meter usage: deduct message credits + record token/image usage.
+    try {
+      const tokensIn = estimateTokens(content || '')
+      const tokensOut = estimateTokens(finalContent)
+      await recordUsage(userId, meterKind, { tokensIn, tokensOut, model })
+      const imagesGen = artifacts.filter((a) => a.kind === 'image').length
+      if (imagesGen > 0) await recordUsage(userId, 'image', { images: imagesGen, model })
+    } catch (e: any) {
+      console.error('Usage metering error:', e?.message)
+    }
   } catch (error: any) {
     sendEvent(res, { type: 'error', message: error?.message || 'Agent run failed' })
     await saveMessage(conversation.id, {
