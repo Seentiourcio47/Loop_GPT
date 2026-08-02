@@ -55,7 +55,17 @@ export async function runAgentStream(
   })
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
-    handlers.onError?.(`Request failed (${res.status}). ${text.slice(0, 200)}`)
+    let parsed: any = null
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      /* not JSON */
+    }
+    if (res.status === 402 || parsed?.code === 'OUT_OF_CREDITS') {
+      handlers.onError?.(parsed?.error || "You're out of credits for today. Redeem a voucher or upgrade in Account.")
+    } else {
+      handlers.onError?.(parsed?.error || `Request failed (${res.status}). ${text.slice(0, 200)}`)
+    }
     return
   }
 

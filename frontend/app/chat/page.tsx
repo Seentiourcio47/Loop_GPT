@@ -77,6 +77,19 @@ export default function Home() {
     fetch(`${API_URL}/api/agent/tools`, { headers: authHeaders() }).then((r) => r.json()).then((t) => setToolCount(t.length || 0)).catch(() => {})
   }, [])
 
+  // Auth guard: if not signed in and the backend doesn't allow guest access,
+  // send the visitor to login instead of letting API calls silently 401.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (getStoredUser() || localStorage.getItem('token')) return
+    fetch(`${API_URL}/api/auth/providers`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.guest) window.location.href = '/login'
+      })
+      .catch(() => {})
+  }, [])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, liveSteps, statusMsg])

@@ -22,7 +22,8 @@ function reqBase(req: express.Request): string {
 
 /** GET /api/auth/providers — which sign-in methods the frontend should show. */
 oauthRouter.get('/providers', (_req, res) => {
-  res.json({ providers: enabledProviders(), password: hasDb })
+  const guest = process.env.ENABLE_DEV_MODE === 'true' || process.env.NODE_ENV === 'development'
+  res.json({ providers: enabledProviders(), password: hasDb, guest })
 })
 
 /** GET /api/auth/oauth/:provider — start the OAuth flow. */

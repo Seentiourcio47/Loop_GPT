@@ -19,12 +19,13 @@ function noDb(res: express.Response) {
 router.get('/stats', async (_req, res) => {
   if (!hasDb || !prisma) return noDb(res)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  const [users, admins, unlimited, pro, tokenAgg, imagesAgg, events24, newUsers24, payAgg, recentEvents] =
+  const [users, admins, unlimited, pro, gold, tokenAgg, imagesAgg, events24, newUsers24, payAgg, recentEvents] =
     await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: 'admin' } }),
       prisma.user.count({ where: { unlimited: true } }),
       prisma.user.count({ where: { plan: 'pro' } }),
+      prisma.user.count({ where: { plan: 'gold' } }),
       prisma.user.aggregate({ _sum: { tokensInTotal: true, tokensOutTotal: true, imagesTotal: true, messagesTotal: true } }),
       prisma.usageEvent.aggregate({ _sum: { tokensIn: true, tokensOut: true }, where: { createdAt: { gte: since } } }),
       prisma.usageEvent.count({ where: { createdAt: { gte: since } } }),
@@ -35,7 +36,7 @@ router.get('/stats', async (_req, res) => {
 
   res.json({
     hasDb: true,
-    users: { total: users, admins, unlimited, pro, free: users - pro, new24h: newUsers24 },
+    users: { total: users, admins, unlimited, pro, gold, free: Math.max(0, users - pro - gold), new24h: newUsers24 },
     tokens: {
       inTotal: Number(tokenAgg._sum.tokensInTotal || 0),
       outTotal: Number(tokenAgg._sum.tokensOutTotal || 0),

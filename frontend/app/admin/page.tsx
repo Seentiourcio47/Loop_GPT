@@ -10,7 +10,7 @@ import { apiFetch } from '../lib/api'
 
 interface Stats {
   hasDb: boolean
-  users?: { total: number; admins: number; unlimited: number; pro: number; free: number; new24h: number }
+  users?: { total: number; admins: number; unlimited: number; pro: number; gold: number; free: number; new24h: number }
   tokens?: { inTotal: number; outTotal: number; in24h: number; out24h: number }
   activity?: { messagesTotal: number; imagesTotal: number; events24h: number; byKind24h: { kind: string; count: number }[] }
   revenue?: { totalCents: number; payments: number }
@@ -139,7 +139,8 @@ export default function AdminPage() {
       <div className="flex flex-wrap gap-2 mb-6 text-xs">
         <span className="px-2.5 py-1 rounded-full bg-ink-800 border border-white/10 text-slate-300">Free: {fmt(stats?.users?.free)}</span>
         <span className="px-2.5 py-1 rounded-full bg-neon-violet/10 border border-neon-violet/20 text-neon-violet">Pro: {fmt(stats?.users?.pro)}</span>
-        <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center gap-1"><Crown size={11} /> Gold/Unlimited: {fmt(stats?.users?.unlimited)}</span>
+        <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center gap-1"><Crown size={11} /> Gold: {fmt(stats?.users?.gold)}</span>
+        <span className="px-2.5 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 text-neon-cyan flex items-center gap-1"><InfinityIcon size={11} /> Unlimited: {fmt(stats?.users?.unlimited)}</span>
         <span className="px-2.5 py-1 rounded-full bg-ink-800 border border-white/10 text-slate-300">Admins: {fmt(stats?.users?.admins)}</span>
       </div>
 
