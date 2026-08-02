@@ -68,14 +68,14 @@ export const createDocumentTool: ToolDefinition = {
   name: 'create_document',
   source: 'builtin',
   description:
-    'Create a downloadable document. For pdf/docx/markdown pass "content" (use "# " and "## " for headings). For xlsx/csv pass "rows" (array of arrays). For pptx pass "slides" (array of {title, bullets}).',
+    'Create a downloadable file. To build a website/web page/landing page, use format "html" and put the COMPLETE working HTML/CSS/JS in "content". For code files use format "code" (pass "content" and a "filename" with the right extension, e.g. app.js). For pdf/docx/markdown pass "content" (use "# " and "## " for headings). For xlsx/csv pass "rows" (array of arrays). For pptx pass "slides" (array of {title, bullets}). Do NOT use pdf for websites or code.',
   parameters: {
     type: 'object',
     properties: {
-      format: { type: 'string', enum: ['pdf', 'docx', 'xlsx', 'pptx', 'csv', 'md'], description: 'Output format.' },
-      filename: { type: 'string', description: 'Base filename without extension.' },
-      title: { type: 'string', description: 'Document title.' },
-      content: { type: 'string', description: 'Body text for pdf/docx/md.' },
+      format: { type: 'string', enum: ['html', 'code', 'pdf', 'docx', 'xlsx', 'pptx', 'csv', 'md', 'txt', 'json'], description: 'Output format. Use "html" for websites/web pages, "code" for source files.' },
+      filename: { type: 'string', description: 'Base filename. For "code", include the extension (e.g. script.py).' },
+      title: { type: 'string', description: 'Document/page title.' },
+      content: { type: 'string', description: 'Full content: HTML for "html", source code for "code", body text for pdf/docx/md/txt.' },
       rows: { type: 'array', description: 'Rows (array of arrays) for xlsx/csv.', items: { type: 'array' } },
       slides: { type: 'array', description: 'Slides for pptx: [{title, bullets:[...]}].', items: { type: 'object' } },
     },
@@ -111,6 +111,34 @@ export const createDocumentTool: ToolDefinition = {
         case 'md':
           ext = 'md'
           buffer = Buffer.from(`# ${title}\n\n${content}`, 'utf-8')
+          break
+        case 'html': {
+          ext = 'html'
+          const c = content.trim()
+          const isFullDoc = /<!doctype html|<html[\s>]/i.test(c)
+          // Wrap a fragment into a complete, standalone page so it renders on its own.
+          buffer = Buffer.from(
+            isFullDoc
+              ? c
+              : `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${title}</title>\n</head>\n<body>\n${c}\n</body>\n</html>\n`,
+            'utf-8'
+          )
+          break
+        }
+        case 'code': {
+          // Keep whatever extension the model put on the filename; default .txt.
+          const m = String(args.filename || '').match(/\.([a-z0-9]+)$/i)
+          ext = m ? m[1] : 'txt'
+          buffer = Buffer.from(content, 'utf-8')
+          break
+        }
+        case 'txt':
+          ext = 'txt'
+          buffer = Buffer.from(content, 'utf-8')
+          break
+        case 'json':
+          ext = 'json'
+          buffer = Buffer.from(content, 'utf-8')
           break
         default:
           return { content: `Unsupported format "${format}".`, isError: true }
