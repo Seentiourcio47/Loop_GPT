@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Send, Plus, PanelLeft, Trash2, Edit2, Image as ImageIcon, Settings, Sparkles, X,
   MessageSquare, Bot, Search, Wrench, FileDown, Loader2, Cpu, ChevronRight, CreditCard, ShieldCheck,
+  Copy, Check, RotateCcw,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,6 +14,7 @@ import { API_URL, authHeaders, getProviderSettings, getStoredUser, type AgentMod
 import { runAgentStream, type ArtifactRef } from '../lib/stream'
 import AgentComputer, { type LiveStep } from '../components/AgentComputer'
 import SettingsPanel from '../components/SettingsPanel'
+import Markdown from '../components/chat/Markdown'
 import { track } from '../components/Analytics'
 
 interface Message {
@@ -28,11 +30,21 @@ interface Message {
 }
 interface Conversation { id: string; title: string; createdAt: string; updatedAt: string }
 
-const MODES: { id: AgentMode; label: string; icon: any; hint: string }[] = [
-  { id: 'agent', label: 'Agent', icon: Bot, hint: 'Full tool use' },
-  { id: 'chat', label: 'Chat', icon: MessageSquare, hint: 'Fast, no tools' },
-  { id: 'research', label: 'Deep Research', icon: Search, hint: 'Search + cite' },
+// Slash commands replace the old mode pills. Default (no slash) = agent.
+const SLASH_COMMANDS: { cmd: string; mode: AgentMode; label: string; icon: any; hint: string }[] = [
+  { cmd: '/research', mode: 'research', label: 'Deep Research', icon: Search, hint: 'Search the web and synthesize a cited answer' },
+  { cmd: '/chat', mode: 'chat', label: 'Quick Chat', icon: MessageSquare, hint: 'Fast reply, no tools' },
 ]
+
+/** Parse a leading slash command → { mode, text }. Default mode is agent. */
+function parseCommand(input: string): { mode: AgentMode; text: string } {
+  const m = input.match(/^\/(research|chat|agent)\b[ \t]*/i)
+  if (m) {
+    const c = m[1].toLowerCase()
+    return { mode: c === 'research' ? 'research' : c === 'chat' ? 'chat' : 'agent', text: input.slice(m[0].length) }
+  }
+  return { mode: 'agent', text: input }
+}
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -41,6 +53,7 @@ export default function Home() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [mode, setMode] = useState<AgentMode>('agent')
+  const [showSlash, setShowSlash] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -134,14 +147,17 @@ export default function Home() {
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault()
     if ((!input.trim() && !selectedImage) || running) return
-    const content = input.trim()
+    const { mode: sendMode, text: content } = parseCommand(input.trim())
+    if (!content && !selectedImage) return // a bare "/research" with no query
+    setMode(sendMode)
+    setShowSlash(false)
     const image = selectedImage
     const preview = imagePreview
     setInput(''); setSelectedImage(null); setImagePreview(null)
     setRunning(true); setStatusMsg(''); setLiveSteps([]); setLiveArtifacts([])
     setLiveUser({ content, image: preview || undefined })
-    if (!computerOpen) setComputerOpen(true)
-    track('message_sent', { mode })
+    if (!computerOpen && sendMode !== 'chat') setComputerOpen(true)
+    track('message_sent', { mode: sendMode })
 
     let convId: string | null = null
     try {
@@ -152,7 +168,7 @@ export default function Home() {
       const abort = new AbortController()
       abortRef.current = abort
 
-      await runAgentStream(convId, { content, imagePath, mode, provider, model, apiKey }, {
+      await runAgentStream(convId, { content, imagePath, mode: sendMode, provider, model, apiKey }, {
         onStatus: (m) => { if (!m.startsWith('conversation:')) setStatusMsg(m) },
         onWarming: (m) => setStatusMsg(m),
         onDelta: (step, text) => {
@@ -301,12 +317,11 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6">
           {showEmpty ? (
             <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center px-2">
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-neon-violet via-neon-indigo to-neon-cyan flex items-center justify-center shadow-glow mb-5 sm:mb-6">
-                <Sparkles size={28} className="text-white" />
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center"><Sparkles size={18} className="text-slate-200" /></div>
               </motion.div>
-              <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight mb-3"><span className="text-gradient">How can I help you today?</span></h1>
-              <p className="text-slate-400 text-sm sm:text-base max-w-md">Search the web, run deep research, read &amp; generate images, and produce documents — with every tool call streamed live to the Agent Computer.</p>
+              <h1 className="text-2xl sm:text-[32px] font-semibold tracking-tight text-slate-100 mb-2">How can I help you today?</h1>
+              <p className="text-slate-500 text-sm max-w-sm">Ask anything. Type <span className="font-mono text-slate-400">/</span> for commands like deep research.</p>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-5">
@@ -314,26 +329,23 @@ export default function Home() {
 
               {liveUser && (
                 <>
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 justify-end">
-                    <div className="glass rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+                  <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.06] border border-white/5 px-4 py-2.5">
                       {liveUser.image && <img src={liveUser.image} alt="upload" className="max-w-[240px] max-h-52 rounded-lg border border-white/10 mb-2" />}
-                      <div className="whitespace-pre-wrap text-slate-100 text-[15px]">{liveUser.content}</div>
+                      <div className="whitespace-pre-wrap text-slate-100 text-[15px] leading-relaxed">{liveUser.content}</div>
                     </div>
-                    <Avatar role="user" />
                   </motion.div>
-                  <div className="flex gap-3">
-                    <Avatar role="assistant" running />
-                    <div className="flex-1 min-w-0 glass rounded-2xl rounded-tl-sm px-4 py-3">
-                      <div className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-2">
-                        Loop GPT
-                        {running && <span className="text-[10px] text-neon-violet flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> {mode}</span>}
-                      </div>
-                      {statusMsg && !liveAnswer && (
-                        <div className="flex items-center gap-2 text-sm text-slate-400"><span className="shimmer inline-block h-3 w-32 rounded" /> <span>{statusMsg}</span></div>
-                      )}
-                      {liveAnswer && <div className={`whitespace-pre-wrap text-slate-100 leading-relaxed text-[15px] ${running ? 'cursor' : ''}`}>{liveAnswer}</div>}
-                      {!liveAnswer && !statusMsg && running && <Dots />}
-                    </div>
+                  <div className="min-w-0">
+                    {running && (mode === 'research' || mode === 'agent') && (
+                      <button onClick={() => (computerOpen ? undefined : openComputer())} className="mb-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-300">
+                        <Loader2 size={11} className="animate-spin" /> {statusMsg || 'working'} · view activity
+                      </button>
+                    )}
+                    {statusMsg && !liveAnswer && (
+                      <div className="flex items-center gap-2 text-sm text-slate-400"><span className="shimmer inline-block h-3 w-32 rounded" /> <span>{statusMsg}</span></div>
+                    )}
+                    {liveAnswer && <div className={running ? 'cursor' : ''}><Markdown content={liveAnswer} /></div>}
+                    {!liveAnswer && !statusMsg && running && <Dots />}
                   </div>
                 </>
               )}
@@ -344,19 +356,22 @@ export default function Home() {
 
         {/* Composer */}
         <div className="border-t border-white/5 px-3 sm:px-4 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-center flex-wrap gap-1.5 mb-2">
-              {MODES.map((m) => {
-                const Icon = m.icon
-                const active = mode === m.id
-                return (
-                  <button key={m.id} onClick={() => setMode(m.id)} title={m.hint}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${active ? 'bg-gradient-to-r from-neon-violet to-neon-indigo text-white border-transparent shadow-glow' : 'text-slate-400 border-white/10 hover:bg-white/5'}`}>
-                    <Icon size={13} /> {m.label}
-                  </button>
-                )
-              })}
-            </div>
+          <div className="max-w-3xl mx-auto relative">
+            {showSlash && (
+              <div className="absolute bottom-full mb-2 left-0 right-0 glass rounded-xl border border-white/10 overflow-hidden z-10 shadow-panel">
+                <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-slate-500">Commands</div>
+                {SLASH_COMMANDS.filter((c) => c.cmd.startsWith((input.trim().split(/\s+/)[0] || '').toLowerCase())).map((c) => {
+                  const Icon = c.icon
+                  return (
+                    <button key={c.cmd} type="button" onMouseDown={(e) => { e.preventDefault(); setInput(c.cmd + ' '); setShowSlash(false) }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 text-left transition">
+                      <Icon size={16} className="text-slate-400 shrink-0" />
+                      <span className="min-w-0"><span className="text-sm text-slate-200">{c.label} </span><span className="text-xs text-slate-500 font-mono">{c.cmd}</span><span className="block text-xs text-slate-500 truncate">{c.hint}</span></span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {imagePreview && (
               <div className="mb-2 relative inline-block">
                 <img src={imagePreview} alt="preview" className="max-h-28 rounded-lg border border-white/10" />
@@ -366,9 +381,10 @@ export default function Home() {
             <form onSubmit={handleSend} className="glass rounded-2xl flex items-end gap-2 px-2 focus-within:accent-ring transition">
               <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-lg hover:bg-white/5 text-slate-400 mb-1.5" title="Upload image"><ImageIcon size={19} /></button>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-              <textarea value={input} onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder={mode === 'research' ? 'Ask a research question…' : 'Message Loop GPT…'} rows={1}
+              <textarea value={input}
+                onChange={(e) => { const v = e.target.value; setInput(v); setShowSlash(v.startsWith('/') && !/\s/.test(v)) }}
+                onKeyDown={(e) => { if (e.key === 'Escape') setShowSlash(false); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                placeholder="Message Loop GPT…    ( / for commands )" rows={1}
                 className="flex-1 bg-transparent py-3.5 resize-none focus:outline-none placeholder-slate-500 text-[15px] text-slate-100" style={{ maxHeight: 200 }} />
               {running ? (
                 <button type="button" onClick={stopRun} className="p-2.5 mb-1.5 rounded-lg text-slate-300 hover:text-rose-400" title="Stop"><X size={19} /></button>
@@ -415,35 +431,36 @@ function Dots() {
 function MessageBubble({ message, fmtTime }: { message: Message; fmtTime: (s: string) => string }) {
   const artifacts: ArtifactRef[] = message.metadata?.artifacts || []
   const sources = message.metadata?.sources as { index: number; title: string; url: string }[] | undefined
-  const steps = message.metadata?.steps as { tool?: string }[] | undefined
   const isUser = message.role === 'user'
-  return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`flex gap-3 ${isUser ? 'justify-end' : ''}`}>
-      {!isUser && <Avatar role="assistant" />}
-      <div className={`min-w-0 ${isUser ? 'max-w-[80%]' : 'flex-1'}`}>
-        <div className={`glass rounded-2xl px-4 py-3 ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium text-slate-400">{isUser ? 'You' : 'Loop GPT'}</span>
-            <span className="text-[10px] text-slate-600">{fmtTime(message.createdAt)}</span>
-            {!isUser && message.toolUsed && <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-violet/15 text-neon-violet">{message.toolUsed}</span>}
-          </div>
-          {isUser && message.imagePath && <img src={message.imageUrl || `${API_URL}/uploads/${message.imagePath.split('/').pop()}`} alt="Uploaded" className="max-w-[280px] max-h-64 rounded-lg border border-white/10 mb-2" />}
-          {steps && steps.filter((s) => s.tool).length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {steps.filter((s) => s.tool).map((s, i) => <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 text-[11px] text-slate-400"><Wrench size={10} />{s.tool}</span>)}
-            </div>
-          )}
-          {message.content && <div className="whitespace-pre-wrap text-slate-100 leading-relaxed text-[15px]">{message.content}</div>}
-          {artifacts.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{artifacts.map((a) => <ArtifactCard key={a.id} a={a} />)}</div>}
-          {sources && sources.length > 0 && (
-            <div className="mt-3 text-xs text-slate-500">
-              <div className="font-medium mb-1 text-slate-400">Sources</div>
-              <ol className="space-y-0.5">{sources.map((s) => <li key={s.index}>[{s.index}] <a href={s.url} target="_blank" rel="noreferrer" className="text-neon-cyan hover:underline">{s.title}</a></li>)}</ol>
-            </div>
-          )}
+  const [copied, setCopied] = useState(false)
+  const copy = () => { navigator.clipboard?.writeText(message.content || '').then(() => { setCopied(true); setTimeout(() => setCopied(false), 1400) }) }
+
+  // User: compact right-aligned bubble. Assistant: full-width, no card, markdown.
+  if (isUser) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.06] border border-white/5 px-4 py-2.5">
+          {message.imagePath && <img src={message.imageUrl || `${API_URL}/uploads/${message.imagePath.split('/').pop()}`} alt="Uploaded" className="max-w-[280px] max-h-64 rounded-lg border border-white/10 mb-2" />}
+          {message.content && <div className="whitespace-pre-wrap text-slate-100 text-[15px] leading-relaxed">{message.content}</div>}
         </div>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="group">
+      {message.content && <Markdown content={message.content} />}
+      {artifacts.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{artifacts.map((a) => <ArtifactCard key={a.id} a={a} />)}</div>}
+      {sources && sources.length > 0 && (
+        <div className="mt-3 text-xs text-slate-500">
+          <div className="font-medium mb-1 text-slate-400">Sources</div>
+          <ol className="space-y-0.5">{sources.map((s) => <li key={s.index}>[{s.index}] <a href={s.url} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">{s.title}</a></li>)}</ol>
+        </div>
+      )}
+      {/* Hover action row (Claude-style) */}
+      <div className="mt-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+        <button onClick={copy} title="Copy" className="p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-white/5">{copied ? <Check size={14} /> : <Copy size={14} />}</button>
       </div>
-      {isUser && <Avatar role="user" />}
     </motion.div>
   )
 }
