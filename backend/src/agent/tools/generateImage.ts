@@ -19,6 +19,25 @@ import type { ToolDefinition } from '../types'
  * providers in order until one returns an image. Responses come back either as
  * base64 (`data[].b64_json`) or a URL (`data[].url`), both of which we handle.
  */
+/**
+ * Generate via a dedicated Hugging Face Inference Endpoint running a diffusers
+ * text-to-image model (e.g. an uncensored FLUX finetune). The endpoint accepts
+ * the standard HF text-to-image body { inputs } and returns raw image bytes.
+ */
+async function hfImageEndpoint(prompt: string): Promise<Buffer> {
+  const raw = (process.env.HF_IMAGE_ENDPOINT_URL || '').replace(/\/+$/, '')
+  return fetchBuffer(raw, {
+    method: 'POST',
+    body: { inputs: prompt, parameters: {} },
+    headers: {
+      Authorization: `Bearer ${process.env.HF_TOKEN || ''}`,
+      'Content-Type': 'application/json',
+      Accept: 'image/png',
+    },
+    timeoutMs: 180000, // tolerate cold starts on scale-to-zero endpoints
+  })
+}
+
 async function hfTextToImage(prompt: string, model: string): Promise<Buffer> {
   const configured = process.env.HF_IMAGE_PROVIDER
   const providers = configured ? [configured] : ['nscale', 'together', 'fal-ai']
@@ -61,8 +80,18 @@ export const generateImageTool: ToolDefinition = {
 
     let buffer: Buffer | null = null
     let usedModel = model
+    // 1) Dedicated HF Inference Endpoint (e.g. an uncensored FLUX finetune).
+    if (process.env.HF_IMAGE_ENDPOINT_URL) {
+      try {
+        buffer = await hfImageEndpoint(prompt)
+        usedModel = process.env.HF_IMAGE_ENDPOINT_MODEL || 'custom endpoint'
+      } catch (error: any) {
+        ctx.emit({ type: 'status', message: `Image endpoint failed (${error?.message || error}); trying providers…` })
+      }
+    }
+    // 2) Serverless HF Inference Providers (FLUX via router).
     try {
-      if (process.env.HF_TOKEN) {
+      if (!buffer && process.env.HF_TOKEN) {
         buffer = await hfTextToImage(prompt, model)
       }
     } catch (error: any) {
