@@ -26,16 +26,34 @@ import type { ToolDefinition } from '../types'
  */
 async function hfImageEndpoint(prompt: string): Promise<Buffer> {
   const raw = (process.env.HF_IMAGE_ENDPOINT_URL || '').replace(/\/+$/, '')
-  return fetchBuffer(raw, {
-    method: 'POST',
-    body: { inputs: prompt, parameters: {} },
-    headers: {
-      Authorization: `Bearer ${process.env.HF_TOKEN || ''}`,
-      'Content-Type': 'application/json',
-      Accept: 'image/png',
-    },
-    timeoutMs: 180000, // tolerate cold starts on scale-to-zero endpoints
-  })
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 180000) // cold-start tolerant
+  try {
+    const res = await fetch(raw, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.HF_TOKEN || ''}`,
+        'Content-Type': 'application/json',
+        Accept: 'image/png',
+      },
+      body: JSON.stringify({ inputs: prompt, parameters: {} }),
+      signal: ctrl.signal,
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
+    const ct = res.headers.get('content-type') || ''
+    // Custom handlers may return raw image bytes OR JSON (base64 / url). Handle both.
+    if (ct.includes('application/json')) {
+      const j: any = await res.json()
+      const b64 = j?.image || j?.[0]?.image || j?.images?.[0]?.b64_json || j?.data?.[0]?.b64_json || (typeof j === 'string' ? j : null)
+      if (b64) return Buffer.from(b64, 'base64')
+      const url = j?.url || j?.[0]?.url || j?.images?.[0]?.url || j?.data?.[0]?.url
+      if (url) return fetchBuffer(url, { timeoutMs: 60000 })
+      throw new Error('endpoint returned JSON without an image')
+    }
+    return Buffer.from(await res.arrayBuffer())
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function hfTextToImage(prompt: string, model: string): Promise<Buffer> {
