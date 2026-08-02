@@ -5,13 +5,25 @@ import jwt from 'jsonwebtoken'
 import { validate, validationSchemas } from '../middleware/validation'
 
 const router = express.Router()
-const prisma = new PrismaClient()
+
+// Only construct Prisma when a real database is configured; otherwise the app
+// runs on the in-memory store and auth endpoints return 503. Constructing it
+// unconditionally crashes boot when no DB (or engine) is present.
+let prisma: PrismaClient | null = null
+try {
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('postgresql://user:password')) {
+    prisma = new PrismaClient()
+  }
+} catch {
+  prisma = null
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
 // Register
 router.post('/register', validate(validationSchemas.register), async (req, res) => {
   try {
+    if (!prisma) return res.status(503).json({ error: 'Account registration requires a database (set DATABASE_URL).' })
     const { email, password, name } = req.body
 
     if (!email || !password) {
@@ -55,6 +67,7 @@ router.post('/register', validate(validationSchemas.register), async (req, res) 
 // Login
 router.post('/login', validate(validationSchemas.login), async (req, res) => {
   try {
+    if (!prisma) return res.status(503).json({ error: 'Login requires a database (set DATABASE_URL).' })
     const { email, password } = req.body
 
     if (!email || !password) {
