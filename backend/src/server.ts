@@ -34,6 +34,7 @@ import telemetryRoutes from './routes/telemetry'
 import accountRoutes from './routes/account'
 import adminRoutes from './routes/admin'
 import { oauthRouter, mailRouter } from './routes/oauth'
+import billingRoutes, { stripeWebhook } from './routes/billing'
 import { validateEnv } from './middleware/envValidation'
 import { rateLimiter } from './middleware/rateLimiter'
 import { errorLogger } from './middleware/errorLogger'
@@ -53,6 +54,9 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
 }))
+// Stripe webhook needs the raw body for signature verification — mount BEFORE json().
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook)
+
 app.use(express.json())
 
 // Rate limiting (100 requests per 15 minutes per user/IP)
@@ -74,6 +78,7 @@ app.use('/api/agent', agentRoutes)
 app.use('/api/telemetry', telemetryRoutes)
 app.use('/api/account', accountRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/billing', billingRoutes)
 
 // Root route
 app.get('/', (req, res) => {

@@ -6,6 +6,9 @@
  * Admins and users flagged `unlimited` (e.g. via a team voucher) bypass limits.
  */
 import { prisma, hasDb } from './prisma'
+import { lowCreditEmail } from './email'
+
+const LOW_CREDIT_THRESHOLD = 5
 
 export type UsageKind = 'chat' | 'agent' | 'research' | 'image'
 
@@ -165,6 +168,14 @@ export async function recordUsage(
       data: { userId, kind, tokensIn, tokensOut, credits: bypass ? 0 : cost + imageCost, model: opts.model || null },
     }),
   ])
+
+  // One-shot low-credit alert email the moment the user crosses the threshold.
+  if (!bypass && cost) {
+    const after = user.credits - cost
+    if (user.credits > LOW_CREDIT_THRESHOLD && after <= LOW_CREDIT_THRESHOLD) {
+      lowCreditEmail(user.email, user.name, Math.max(0, after)).catch(() => {})
+    }
+  }
 }
 
 export interface RedeemResult {

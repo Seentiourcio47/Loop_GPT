@@ -34,6 +34,23 @@ export default function AccountPage() {
   const [code, setCode] = useState('')
   const [redeeming, setRedeeming] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [billing, setBilling] = useState<{ enabled: boolean; plans: { pro: boolean; gold: boolean } } | null>(null)
+  const [checkingOut, setCheckingOut] = useState(false)
+
+  useEffect(() => {
+    apiFetch<{ enabled: boolean; plans: any }>('/api/billing/config').then(setBilling).catch(() => setBilling(null))
+  }, [])
+
+  async function upgrade(plan: string) {
+    setCheckingOut(true)
+    try {
+      const r = await apiFetch<{ url: string }>('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ plan }) })
+      if (r.url) window.location.href = r.url
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.message || 'Could not start checkout.' })
+      setCheckingOut(false)
+    }
+  }
 
   async function load() {
     try {
@@ -129,13 +146,19 @@ export default function AccountPage() {
           </div>
 
           {/* Upgrade CTA */}
-          {acct && !acct.unlimited && acct.plan !== 'pro' && (
+          {acct && !acct.unlimited && acct.plan !== 'pro' && acct.plan !== 'gold' && (
             <div className="glass rounded-2xl p-5 flex items-center justify-between">
               <div>
                 <div className="text-slate-100 font-medium">Upgrade to Pro</div>
                 <div className="text-xs text-slate-500">1,000 messages + 100 images per day, priority speed.</div>
               </div>
-              <Link href="/#pricing" className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-neon-violet to-neon-cyan hover:opacity-90 transition shadow-glow text-sm font-medium">See plans</Link>
+              {billing?.enabled && billing.plans.pro ? (
+                <button onClick={() => upgrade('pro')} disabled={checkingOut} className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-neon-violet to-neon-cyan hover:opacity-90 disabled:opacity-50 transition shadow-glow text-sm font-medium flex items-center gap-2">
+                  {checkingOut ? <Loader2 size={15} className="animate-spin" /> : 'Upgrade'}
+                </button>
+              ) : (
+                <Link href="/#pricing" className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-neon-violet to-neon-cyan hover:opacity-90 transition shadow-glow text-sm font-medium">See plans</Link>
+              )}
             </div>
           )}
 

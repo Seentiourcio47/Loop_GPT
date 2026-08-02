@@ -33,6 +33,7 @@
     "pdfkit": "^0.15.0",
     "pptxgenjs": "^3.12.0",
     "prisma": "^5.7.1",
+    "stripe": "^22.4.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
