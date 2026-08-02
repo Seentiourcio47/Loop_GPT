@@ -49,11 +49,29 @@ initAgent().catch((err) => console.error('Agent init error:', err))
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}))
+// Middleware — CORS allows a comma-separated FRONTEND_URL allowlist, any
+// *.up.railway.app origin (Railway service URLs), and requests without an Origin
+// (curl/server-to-server). This keeps the app working on both the custom domain
+// and the Railway-generated URL without a redeploy per domain change.
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true)
+      if (allowedOrigins.includes(origin)) return cb(null, true)
+      try {
+        if (/(^|\.)up\.railway\.app$/.test(new URL(origin).hostname)) return cb(null, true)
+      } catch {
+        /* malformed origin */
+      }
+      return cb(null, false)
+    },
+    credentials: true,
+  })
+)
 // Stripe webhook needs the raw body for signature verification — mount BEFORE json().
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook)
 
