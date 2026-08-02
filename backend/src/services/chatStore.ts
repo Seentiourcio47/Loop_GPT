@@ -41,12 +41,14 @@ export interface SaveMessageInput {
 
 async function ensureDevUser(userId: string) {
   if (!prisma) return
-  if (process.env.NODE_ENV === 'development' && userId === 'dev-user-123') {
+  // The shared guest identity (used when ENABLE_DEV_MODE is on) must exist in the
+  // User table before conversations can reference it — regardless of NODE_ENV.
+  if (userId === 'dev-user-123') {
     const existing = await prisma.user.findUnique({ where: { id: userId } })
     if (!existing) {
       const bcrypt = require('bcryptjs')
       await prisma.user.create({
-        data: { id: userId, email: 'dev@test.com', password: await bcrypt.hash('dev', 10), name: 'Dev User' },
+        data: { id: userId, email: 'guest@loop-gpt.local', password: await bcrypt.hash('guest', 10), name: 'Guest' },
       })
     }
   }

@@ -11,6 +11,16 @@ if (process.env.SENTRY_DSN) {
   })
 }
 
+// Keep the server alive on stray async errors (report to Sentry, don't exit).
+process.on('unhandledRejection', (reason: any) => {
+  console.error('Unhandled rejection:', reason?.message || reason)
+  if (process.env.SENTRY_DSN) Sentry.captureException(reason)
+})
+process.on('uncaughtException', (err: any) => {
+  console.error('Uncaught exception:', err?.message || err)
+  if (process.env.SENTRY_DSN) Sentry.captureException(err)
+})
+
 import express from 'express'
 import cors from 'cors'
 import path from 'path'

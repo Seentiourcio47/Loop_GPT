@@ -66,18 +66,25 @@ router.post('/:conversationId/stream', authenticateToken, async (req, res) => {
     console.warn(`[guardrails] possible prompt-extraction attempt from user ${userId}`)
   }
 
-  const conversation = await getOrCreateConversation(userId, conversationId, content || 'New Chat')
-  if (!conversation) return res.status(404).json({ error: 'Conversation not found' })
-
-  // Persist the user message before streaming.
+  // Resolve/create the conversation and persist the user message BEFORE opening
+  // the SSE stream. Wrap in try/catch so a DB error returns a clean 500 instead
+  // of an unhandled rejection that crashes the process.
   const hasImage = !!imagePath
-  await saveMessage(conversation.id, {
-    role: 'user',
-    content: content || '',
-    messageType: hasImage ? 'mixed' : 'text',
-    imagePath: imagePath || null,
-    toolUsed: mode,
-  })
+  let conversation: { id: string } | null
+  try {
+    conversation = await getOrCreateConversation(userId, conversationId, content || 'New Chat')
+    if (!conversation) return res.status(404).json({ error: 'Conversation not found' })
+    await saveMessage(conversation.id, {
+      role: 'user',
+      content: content || '',
+      messageType: hasImage ? 'mixed' : 'text',
+      imagePath: imagePath || null,
+      toolUsed: mode,
+    })
+  } catch (err: any) {
+    console.error('Stream setup error:', err?.message)
+    return res.status(500).json({ error: 'Failed to start conversation', details: err?.message })
+  }
 
   initSSE(res)
   sendEvent(res, { type: 'status', message: `conversation:${conversation.id}` })
