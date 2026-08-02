@@ -5,14 +5,15 @@ import { motion } from 'framer-motion'
 import { X, Wrench, Puzzle, Blocks, Cable, Sparkles, Plug, Plus, Trash2, Hammer } from 'lucide-react'
 import { API_URL, authHeaders, getProviderSettings } from '../lib/api'
 
-interface Props { onClose: () => void }
+interface Props { onClose: () => void; initialTab?: string }
 type Tab = 'model' | 'skills' | 'plugins' | 'builder' | 'mcp' | 'connectors' | 'tools'
 
 const inputCls = 'mt-1 w-full bg-ink-800 border border-white/10 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:accent-ring placeholder-slate-600'
-const btnCls = 'px-3 py-1.5 rounded-lg text-sm text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition'
+const btnCls = 'px-3 py-1.5 rounded-lg text-sm text-white bg-[#c96442] hover:bg-[#b5593a] transition'
 
-export default function SettingsPanel({ onClose }: Props) {
-  const [tab, setTab] = useState<Tab>('model')
+export default function SettingsPanel({ onClose, initialTab }: Props) {
+  const TABS: Tab[] = ['model', 'skills', 'plugins', 'builder', 'connectors', 'mcp', 'tools']
+  const [tab, setTab] = useState<Tab>((TABS.includes(initialTab as Tab) ? initialTab : 'model') as Tab)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }}

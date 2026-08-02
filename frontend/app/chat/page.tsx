@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Send, Plus, PanelLeft, Trash2, Edit2, Image as ImageIcon, Settings, Sparkles, X,
   MessageSquare, Bot, Search, Wrench, FileDown, Loader2, Cpu, ChevronRight, CreditCard, ShieldCheck,
-  Copy, Check, RotateCcw,
+  Copy, Check, RotateCcw, Camera, Paperclip, Plug, ChevronDown, ClipboardCheck, Zap,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -54,7 +54,11 @@ export default function Home() {
   const [input, setInput] = useState('')
   const [mode, setMode] = useState<AgentMode>('agent')
   const [showSlash, setShowSlash] = useState(false)
+  const [showPlus, setShowPlus] = useState(false)
+  const [showModeMenu, setShowModeMenu] = useState(false)
+  const [runMode, setRunMode] = useState<'auto' | 'plan' | 'accept'>('auto')
   const [showSettings, setShowSettings] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<string | undefined>(undefined)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
@@ -70,6 +74,7 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const queryClient = useQueryClient()
 
@@ -176,7 +181,8 @@ export default function Home() {
       const abort = new AbortController()
       abortRef.current = abort
 
-      await runAgentStream(convId, { content, imagePath, mode: sendMode, provider, model, apiKey }, {
+      const sendContent = runMode === 'plan' && content ? `Plan first: briefly outline the steps you'll take, then carry them out.\n\n${content}` : content
+      await runAgentStream(convId, { content: sendContent, imagePath, mode: sendMode, provider, model, apiKey }, {
         onStatus: (m) => { if (!m.startsWith('conversation:')) setStatusMsg(m) },
         onWarming: (m) => setStatusMsg(m),
         onDelta: (step, text) => {
@@ -386,22 +392,59 @@ export default function Home() {
                 <button onClick={() => { setSelectedImage(null); setImagePreview(null) }} className="absolute -top-1.5 -right-1.5 p-1 bg-ink-700 rounded-full text-slate-200 border border-white/10"><X size={12} /></button>
               </div>
             )}
-            <form onSubmit={handleSend} className="glass rounded-2xl flex items-end gap-2 px-2 focus-within:accent-ring transition">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-lg hover:bg-white/5 text-slate-400 mb-1.5" title="Upload image"><ImageIcon size={19} /></button>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} className="hidden" />
+            <form onSubmit={handleSend} className="glass rounded-2xl px-3 py-2 focus-within:accent-ring transition">
               <textarea value={input}
                 onChange={(e) => { const v = e.target.value; setInput(v); setShowSlash(v.startsWith('/') && !/\s/.test(v)) }}
-                onKeyDown={(e) => { if (e.key === 'Escape') setShowSlash(false); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setShowSlash(false); setShowPlus(false) } if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
                 placeholder="Message Loop GPT…    ( / for commands )" rows={1}
-                className="flex-1 bg-transparent py-3.5 resize-none focus:outline-none placeholder-slate-500 text-[15px] text-slate-100" style={{ maxHeight: 200 }} />
-              {running ? (
-                <button type="button" onClick={stopRun} className="p-2.5 mb-1.5 rounded-lg text-slate-300 hover:text-rose-400" title="Stop"><X size={19} /></button>
-              ) : (
-                <button type="submit" disabled={!input.trim() && !selectedImage}
-                  className="p-2 mb-1.5 mr-0.5 rounded-xl text-white bg-[#c96442] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#b5593a] transition" title="Send">
-                  <Send size={18} />
-                </button>
-              )}
+                className="w-full bg-transparent pt-1.5 pb-1 resize-none focus:outline-none placeholder-slate-500 text-[15px] text-slate-100" style={{ maxHeight: 200 }} />
+              <div className="flex items-center gap-1.5">
+                {/* + attach menu */}
+                <div className="relative">
+                  <button type="button" onClick={() => { setShowPlus((v) => !v); setShowModeMenu(false) }} title="Add"
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg border transition ${showPlus ? 'border-white/20 bg-white/10 text-slate-100' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>
+                    <Plus size={18} />
+                  </button>
+                  {showPlus && (
+                    <div className="absolute bottom-full mb-2 left-0 w-52 glass rounded-xl border border-white/10 overflow-hidden z-20 shadow-panel">
+                      <PlusItem icon={Paperclip} label="Upload a file" onClick={() => { setShowPlus(false); fileInputRef.current?.click() }} />
+                      <PlusItem icon={ImageIcon} label="Add photo" onClick={() => { setShowPlus(false); fileInputRef.current?.click() }} />
+                      <PlusItem icon={Camera} label="Take a photo" onClick={() => { setShowPlus(false); cameraInputRef.current?.click() }} />
+                      <PlusItem icon={Plug} label="Connectors" onClick={() => { setShowPlus(false); setSettingsTab('connectors'); setShowSettings(true) }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Mode picker: Auto / Plan / Accept edits */}
+                <div className="relative">
+                  <button type="button" onClick={() => { setShowModeMenu((v) => !v); setShowPlus(false) }}
+                    className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 text-xs transition">
+                    {runMode === 'auto' ? <Zap size={13} /> : runMode === 'plan' ? <ClipboardCheck size={13} /> : <Check size={13} />}
+                    {runMode === 'auto' ? 'Auto' : runMode === 'plan' ? 'Plan' : 'Accept edits'}
+                    <ChevronDown size={13} className="text-slate-500" />
+                  </button>
+                  {showModeMenu && (
+                    <div className="absolute bottom-full mb-2 left-0 w-56 glass rounded-xl border border-white/10 overflow-hidden z-20 shadow-panel">
+                      <ModeItem icon={Zap} label="Auto" hint="Agent decides and uses tools" active={runMode === 'auto'} onClick={() => { setRunMode('auto'); setShowModeMenu(false) }} />
+                      <ModeItem icon={ClipboardCheck} label="Plan" hint="Outline a plan before acting" active={runMode === 'plan'} onClick={() => { setRunMode('plan'); setShowModeMenu(false) }} />
+                      <ModeItem icon={Check} label="Accept edits" hint="Run all steps without pausing" active={runMode === 'accept'} onClick={() => { setRunMode('accept'); setShowModeMenu(false) }} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="ml-auto">
+                  {running ? (
+                    <button type="button" onClick={stopRun} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-400" title="Stop"><X size={19} /></button>
+                  ) : (
+                    <button type="submit" disabled={!input.trim() && !selectedImage}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg text-white bg-[#c96442] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#b5593a] transition" title="Send">
+                      <Send size={17} />
+                    </button>
+                  )}
+                </div>
+              </div>
             </form>
             <p className="text-[11px] text-slate-600 mt-2 text-center">Loop GPT can make mistakes. Verify important info.</p>
           </div>
@@ -418,7 +461,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsPanel initialTab={settingsTab} onClose={() => { setShowSettings(false); setSettingsTab(undefined) }} />}
     </div>
   )
 }
@@ -434,6 +477,24 @@ function Avatar({ role, running }: { role: 'user' | 'assistant'; running?: boole
 
 function Dots() {
   return <div className="flex gap-1.5 py-1">{[0, 150, 300].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-slate-400/70 animate-bounce" style={{ animationDelay: `${d}ms` }} />)}</div>
+}
+
+function PlusItem({ icon: Icon, label, onClick }: { icon: any; label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 text-left text-sm text-slate-200 transition">
+      <Icon size={16} className="text-slate-400 shrink-0" /> {label}
+    </button>
+  )
+}
+
+function ModeItem({ icon: Icon, label, hint, active, onClick }: { icon: any; label: string; hint: string; active?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 text-left transition">
+      <Icon size={16} className={`shrink-0 ${active ? 'text-[#c96442]' : 'text-slate-400'}`} />
+      <span className="min-w-0 flex-1"><span className="text-sm text-slate-200">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span>
+      {active && <Check size={14} className="text-[#c96442] shrink-0" />}
+    </button>
+  )
 }
 
 function MessageBubble({ message, fmtTime }: { message: Message; fmtTime: (s: string) => string }) {
