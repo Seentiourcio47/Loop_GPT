@@ -11,14 +11,32 @@ import axios from 'axios'
 import { toolRegistry } from '../toolRegistry'
 import { configStore, type ConnectorConfig } from '../configStore'
 import type { ToolDefinition } from '../types'
+import { CONNECTOR_CATALOG, buildCatalogTools, type CatalogConnector } from './catalog'
 
 export interface ConnectorType {
   type: string
   name: string
   description: string
+  category?: string
+  icon?: string
+  oauth?: boolean
   /** Config fields the UI should collect (secret fields are write-only). */
-  fields: Array<{ key: string; label: string; secret?: boolean; required?: boolean }>
+  fields: Array<{ key: string; label: string; secret?: boolean; required?: boolean; placeholder?: string }>
   createTools: (cfg: ConnectorConfig) => ToolDefinition[]
+}
+
+/** Adapt a data-driven catalog entry to the ConnectorType interface. */
+function catalogType(def: CatalogConnector): ConnectorType {
+  return {
+    type: def.type,
+    name: def.name,
+    description: def.description,
+    category: def.category,
+    icon: def.icon,
+    oauth: def.oauth,
+    fields: def.fields || [],
+    createTools: (cfg) => buildCatalogTools(def, cfg),
+  }
 }
 
 /** Reference connector: GitHub via a personal access token. */
@@ -26,6 +44,8 @@ const githubConnector: ConnectorType = {
   type: 'github',
   name: 'GitHub',
   description: 'Search GitHub and read file contents using a personal access token.',
+  category: 'Developer',
+  icon: '🐙',
   fields: [{ key: 'token', label: 'GitHub token', secret: true, required: true }],
   createTools(cfg) {
     const token = cfg.config.token
@@ -75,6 +95,8 @@ const httpConnector: ConnectorType = {
   type: 'http',
   name: 'HTTP API',
   description: 'Call any REST API. Exposes an http_get tool scoped to a base URL, with an optional auth header.',
+  category: 'Developer',
+  icon: '🔌',
   fields: [
     { key: 'baseUrl', label: 'Base URL (e.g. https://api.example.com)', required: true },
     { key: 'authHeader', label: 'Auth header name (optional, e.g. Authorization)' },
@@ -110,6 +132,10 @@ class ConnectorRegistry {
   constructor() {
     this.registerType(githubConnector)
     this.registerType(httpConnector)
+    // Data-driven directory (Notion, Slack, Stripe, … + OAuth entries).
+    for (const def of CONNECTOR_CATALOG) {
+      if (!this.types.has(def.type)) this.registerType(catalogType(def))
+    }
   }
 
   registerType(t: ConnectorType) {
@@ -117,7 +143,15 @@ class ConnectorRegistry {
   }
 
   listTypes() {
-    return Array.from(this.types.values()).map((t) => ({ type: t.type, name: t.name, description: t.description, fields: t.fields }))
+    return Array.from(this.types.values()).map((t) => ({
+      type: t.type,
+      name: t.name,
+      description: t.description,
+      category: t.category || 'Other',
+      icon: t.icon || null,
+      oauth: !!t.oauth,
+      fields: t.fields,
+    }))
   }
 
   /** Activate all enabled connectors from the config store. */

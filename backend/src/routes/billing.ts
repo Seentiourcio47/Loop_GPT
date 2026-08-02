@@ -66,6 +66,7 @@ export async function stripeWebhook(req: express.Request, res: express.Response)
 
   try {
     if (event.type === 'checkout.session.completed' || event.type === 'invoice.paid') {
+      // --- Upgrade / payment ---
       const obj = event.data.object
       const userId = obj.metadata?.userId || obj.client_reference_id || obj.subscription_details?.metadata?.userId
       const plan = obj.metadata?.plan || 'pro'
@@ -77,22 +78,40 @@ export async function stripeWebhook(req: express.Request, res: express.Response)
         await prisma.$transaction([
           prisma.user.update({
             where: { id: userId },
-            data: { plan, credits: lim.credits, imageCredits: lim.imageCredits, creditsResetAt: new Date() },
+            data: {
+              plan,
+              credits: lim.credits,
+              imageCredits: lim.imageCredits,
+              creditsResetAt: new Date(),
+              stripeCustomerId: (obj.customer as string) || undefined,
+              stripeSubId: (obj.subscription as string) || undefined,
+            },
           }),
           prisma.payment.create({
-            data: {
-              userId,
-              amount: Math.floor(amount),
-              currency,
-              status: 'succeeded',
-              provider: 'stripe',
-              reference: obj.id,
-              note: `${plan} plan`,
-            },
+            data: { userId, amount: Math.floor(amount), currency, status: 'succeeded', provider: 'stripe', reference: obj.id, note: `${plan} plan` },
           }),
         ])
         const support = process.env.SUPPORT_EMAIL
         if (support) alertEmail(support, `💰 New ${plan} payment`, `User ${userId} paid ${(amount / 100).toFixed(2)} ${currency.toUpperCase()}.`).catch(() => {})
+      }
+    } else if (event.type === 'customer.subscription.deleted' || event.type === 'customer.subscription.updated') {
+      // --- Cancel / downgrade: when a sub ends or lapses, revert to free ---
+      const sub = event.data.object
+      const status = sub.status // active | past_due | canceled | unpaid | ...
+      const ended = event.type === 'customer.subscription.deleted' || ['canceled', 'unpaid', 'incomplete_expired'].includes(status)
+      if (ended && hasDb && prisma) {
+        const userId = sub.metadata?.userId
+        const free = PLAN_LIMITS.free
+        const user = userId
+          ? await prisma.user.findUnique({ where: { id: userId } })
+          : await prisma.user.findFirst({ where: { stripeSubId: sub.id } })
+        if (user && user.plan !== 'free') {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { plan: 'free', credits: Math.min(user.credits, free.credits), imageCredits: Math.min(user.imageCredits, free.imageCredits), stripeSubId: null },
+          })
+          alertEmail(user.email, 'Your subscription ended', 'Your plan has reverted to Free. Resubscribe any time from your account to restore full access.').catch(() => {})
+        }
       }
     }
   } catch (e: any) {

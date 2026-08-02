@@ -129,6 +129,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               )
             })}
           </div>
+          {!providers.length && (
+            <p className="text-[11px] text-slate-600 text-center mb-3 -mt-1">Social sign-in isn&apos;t configured on this server yet — use email below.</p>
+          )}
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px flex-1 bg-white/5" />
             <span className="text-[11px] text-slate-600 uppercase tracking-wider">or email</span>
@@ -141,6 +144,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             )}
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full bg-ink-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-100 text-sm focus:outline-none focus:accent-ring placeholder-slate-600" />
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full bg-ink-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-100 text-sm focus:outline-none focus:accent-ring placeholder-slate-600" />
+            {!isSignup && (
+              <div className="text-right -mt-1"><Link href="/forgot" className="text-xs text-slate-500 hover:text-neon-violet">Forgot password?</Link></div>
+            )}
             {error && <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{error}</div>}
             <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 disabled:opacity-50 transition shadow-glow font-medium">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <>{isSignup ? 'Create account' : 'Log in'} <ArrowRight size={16} /></>}

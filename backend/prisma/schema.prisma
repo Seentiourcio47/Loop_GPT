@@ -24,6 +24,9 @@ model User {
   // Access control
   role             String   @default("user")  // 'user' | 'admin'
   unlimited        Boolean  @default(false)    // team/unlimited access (usually via voucher)
+  emailVerified    Boolean  @default(false)
+  stripeCustomerId String?
+  stripeSubId      String?
 
   // Plan & metering (freemium)
   plan             String   @default("free") // 'free' | 'pro'
@@ -43,9 +46,25 @@ model User {
   redemptions   VoucherRedemption[]
   usageEvents   UsageEvent[]
   payments      Payment[]
+  tokens        Token[]
 
   @@index([role])
   @@index([plan])
+}
+
+/// Short-lived tokens for email verification and password reset.
+model Token {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  type      String   // 'verify' | 'reset'
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
 }
 
 /// A redeemable code. `type=unlimited` flips the user to unlimited (team use);

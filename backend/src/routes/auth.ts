@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { validate, validationSchemas } from '../middleware/validation'
 import { prisma as sharedPrisma, hasDb } from '../services/prisma'
-import { welcomeEmail } from '../services/email'
+import { welcomeEmail, verifyEmail } from '../services/email'
+import { createToken } from '../services/tokens'
 
 const router = express.Router()
 
@@ -58,8 +59,13 @@ router.post('/register', validate(validationSchemas.register), async (req, res) 
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
 
-    // Fire-and-forget welcome email (no-op without SMTP).
+    // Fire-and-forget welcome + email verification (no-op without SMTP).
     welcomeEmail(user.email, user.name).catch(() => {})
+    createToken(user.id, 'verify')
+      .then((t) => {
+        if (t) verifyEmail(user.email, user.name, `${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/verify?token=${t}`)
+      })
+      .catch(() => {})
 
     res.json({
       token,

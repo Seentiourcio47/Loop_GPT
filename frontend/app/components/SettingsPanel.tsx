@@ -238,45 +238,73 @@ function ConnectorMarketplace() {
   const [data, setData] = useState<{ types: any[]; configured: any[] }>({ types: [], configured: [] })
   const [addType, setAddType] = useState<string | null>(null)
   const [fields, setFields] = useState<Record<string, string>>({})
+  const [query, setQuery] = useState('')
+  const [error, setError] = useState('')
   const load = () => fetch(`${API_URL}/api/agent/connectors`, { headers: authHeaders() }).then((r) => r.json()).then(setData).catch(() => {})
   useEffect(() => { load() }, [])
   const selected = data.types.find((t) => t.type === addType)
   const add = async () => {
     if (!selected) return
-    await fetch(`${API_URL}/api/agent/connectors`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ type: addType, name: selected.name, config: fields, enabled: true }) })
+    setError('')
+    const res = await fetch(`${API_URL}/api/agent/connectors`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ type: addType, name: selected.name, config: fields, enabled: true }) })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error || 'Could not connect.'); return }
     setFields({}); setAddType(null); load()
   }
   const remove = async (id: string) => { await fetch(`${API_URL}/api/agent/connectors/${id}`, { method: 'DELETE', headers: authHeaders() }); load() }
+
+  const configuredTypes = new Set(data.configured.map((c) => c.type))
+  const q = query.trim().toLowerCase()
+  const filtered = data.types.filter((t) => !q || t.name.toLowerCase().includes(q) || (t.category || '').toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+  const categories = Array.from(new Set(filtered.map((t) => t.category || 'Other')))
+
   return (
     <div className="space-y-4 text-sm">
-      <p className="text-slate-500">Add ready-made connectors. Secrets are stored server-side and never returned.</p>
+      <p className="text-slate-500">Connect your apps — {data.types.length} integrations. Secrets are stored server-side and never returned.</p>
+
       {data.configured.length > 0 && (
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-wide text-slate-500">Connected</div>
           {data.configured.map((c) => (
             <div key={c.id} className="flex items-center justify-between p-3 rounded-lg glass">
-              <div className="font-medium text-slate-200 flex items-center gap-2"><Plug size={14} className="text-neon-green" />{c.name} <span className="text-xs text-slate-500">({c.type})</span></div>
+              <div className="font-medium text-slate-200 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neon-green" />{c.name} <span className="text-xs text-slate-500">({c.type})</span></div>
               <button onClick={() => remove(c.id)} className="text-rose-400 text-xs hover:underline">Remove</button>
             </div>
           ))}
         </div>
       )}
-      <div className="text-xs uppercase tracking-wide text-slate-500">Marketplace</div>
-      <div className="grid grid-cols-2 gap-2">
-        {data.types.map((t) => (
-          <div key={t.type} className="p-3 rounded-xl glass hover:accent-ring transition flex flex-col">
-            <div className="flex items-center gap-2 mb-1"><div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-violet to-neon-cyan flex items-center justify-center"><Plug size={14} className="text-white" /></div><span className="font-medium text-slate-200">{t.name}</span></div>
-            <p className="text-xs text-slate-500 flex-1">{t.description}</p>
-            <button onClick={() => { setAddType(t.type); setFields({}) }} className="mt-2 text-xs text-neon-violet hover:underline self-start flex items-center gap-1"><Plus size={12} /> Add</button>
+
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search connectors…" className={inputCls} />
+
+      {categories.map((cat) => (
+        <div key={cat} className="space-y-2">
+          <div className="text-xs uppercase tracking-wide text-slate-500">{cat}</div>
+          <div className="grid grid-cols-2 gap-2">
+            {filtered.filter((t) => (t.category || 'Other') === cat).map((t) => (
+              <div key={t.type} className="p-3 rounded-xl glass hover:accent-ring transition flex flex-col">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 rounded-lg bg-ink-800 border border-white/5 flex items-center justify-center text-base">{t.icon || '🔌'}</div>
+                  <span className="font-medium text-slate-200 truncate">{t.name}</span>
+                  {configuredTypes.has(t.type) && <span className="ml-auto text-[10px] text-neon-green">●</span>}
+                </div>
+                <p className="text-xs text-slate-500 flex-1">{t.description}</p>
+                {t.oauth ? (
+                  <span className="mt-2 text-[10px] text-amber-400/80 bg-amber-500/10 rounded px-1.5 py-0.5 self-start">OAuth setup required</span>
+                ) : (
+                  <button onClick={() => { setAddType(t.type); setFields({}); setError('') }} className="mt-2 text-xs text-neon-violet hover:underline self-start flex items-center gap-1"><Plus size={12} /> Add</button>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {selected && (
+        </div>
+      ))}
+
+      {selected && !selected.oauth && (
         <div className="p-3 rounded-lg border border-dashed border-white/10 space-y-2">
-          <div className="text-xs text-slate-400 font-medium">Configure {selected.name}</div>
+          <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><span>{selected.icon || '🔌'}</span> Configure {selected.name}</div>
           {selected.fields?.map((f: any) => (
-            <input key={f.key} type={f.secret ? 'password' : 'text'} placeholder={f.label} value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} className={inputCls} />
+            <input key={f.key} type={f.secret ? 'password' : 'text'} placeholder={f.placeholder || f.label} value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} className={inputCls} />
           ))}
+          {error && <div className="text-xs text-rose-400">{error}</div>}
           <div className="flex gap-2"><button onClick={add} className={btnCls}>Connect</button><button onClick={() => setAddType(null)} className="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-white/5">Cancel</button></div>
         </div>
       )}

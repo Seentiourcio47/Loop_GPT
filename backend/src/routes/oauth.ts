@@ -7,7 +7,9 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { prisma, hasDb } from '../services/prisma'
 import { enabledProviders, providerEnabled, authorizeUrl, callbackUrl, exchangeCode, type OAuthProvider } from '../services/oauth'
-import { welcomeEmail, alertEmail } from '../services/email'
+import { welcomeEmail, alertEmail, verifyEmail, resetPasswordEmail } from '../services/email'
+import { createToken, consumeToken } from '../services/tokens'
+import { authenticateToken } from './auth'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 const FRONTEND = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')
@@ -77,6 +79,55 @@ async function handleCallback(req: express.Request, res: express.Response) {
 // Google/GitHub return via GET; Apple posts a form (response_mode=form_post).
 oauthRouter.get('/oauth/:provider/callback', handleCallback)
 oauthRouter.post('/oauth/:provider/callback', express.urlencoded({ extended: true }), handleCallback)
+
+// ---- Email verification -----------------------------------------------------
+
+/** POST /api/auth/verify { token } — confirm an email address. */
+oauthRouter.post('/verify', async (req, res) => {
+  const userId = await consumeToken(String(req.body?.token || ''), 'verify')
+  if (!userId || !prisma) return res.status(400).json({ error: 'Invalid or expired verification link.' })
+  await prisma.user.update({ where: { id: userId }, data: { emailVerified: true } })
+  res.json({ ok: true })
+})
+
+/** POST /api/auth/resend-verification — re-send the verification email (auth). */
+oauthRouter.post('/resend-verification', authenticateToken, async (req, res) => {
+  const userId = (req as any).userId
+  if (!hasDb || !prisma) return res.status(503).json({ error: 'Requires a database.' })
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) return res.status(404).json({ error: 'User not found.' })
+  if (user.emailVerified) return res.json({ ok: true, alreadyVerified: true })
+  const token = await createToken(user.id, 'verify')
+  if (token) verifyEmail(user.email, user.name, `${FRONTEND()}/verify?token=${token}`).catch(() => {})
+  res.json({ ok: true })
+})
+
+// ---- Password reset ---------------------------------------------------------
+
+/** POST /api/auth/forgot { email } — email a reset link. Always returns ok. */
+oauthRouter.post('/forgot', async (req, res) => {
+  const email = String(req.body?.email || '').toLowerCase().trim()
+  if (prisma && email) {
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (user) {
+      const token = await createToken(user.id, 'reset')
+      if (token) resetPasswordEmail(user.email, user.name, `${FRONTEND()}/reset?token=${token}`).catch(() => {})
+    }
+  }
+  // Don't leak whether the email exists.
+  res.json({ ok: true })
+})
+
+/** POST /api/auth/reset { token, password } — set a new password. */
+oauthRouter.post('/reset', async (req, res) => {
+  const { token, password } = req.body || {}
+  if (!password || String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' })
+  const userId = await consumeToken(String(token || ''), 'reset')
+  if (!userId || !prisma) return res.status(400).json({ error: 'Invalid or expired reset link.' })
+  const hashed = await bcrypt.hash(String(password), 10)
+  await prisma.user.update({ where: { id: userId }, data: { password: hashed } })
+  res.json({ ok: true })
+})
 
 /**
  * POST /api/mail/inbound — inbound email webhook. Point an inbound provider

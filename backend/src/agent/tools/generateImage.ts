@@ -8,6 +8,7 @@
 import { saveArtifact } from '../artifacts'
 import { imageApiService } from '../../services/imageApi'
 import { fetchBuffer, postJson } from '../httpClient'
+import { checkCredits } from '../../services/billing'
 import type { ToolDefinition } from '../types'
 
 /**
@@ -94,6 +95,19 @@ export const generateImageTool: ToolDefinition = {
   async handler(args, ctx) {
     const prompt = String(args.prompt || '').trim()
     if (!prompt) return { content: 'Error: prompt is required.', isError: true }
+
+    // Hard image-credit gate: refuse before spending compute if the user is out.
+    if (ctx.userId) {
+      try {
+        const credit = await checkCredits(ctx.userId, 'image')
+        if (!credit.ok) {
+          return { content: credit.reason || 'Out of image credits for today.', isError: true }
+        }
+      } catch {
+        /* metering unavailable — allow */
+      }
+    }
+
     const model = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell'
 
     let buffer: Buffer | null = null

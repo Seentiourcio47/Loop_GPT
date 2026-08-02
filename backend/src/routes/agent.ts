@@ -247,6 +247,10 @@ router.get('/connectors', authenticateToken, (_req, res) => {
 router.post('/connectors', authenticateToken, (req, res) => {
   const { id, type, name, config, enabled } = req.body || {}
   if (!type || !name) return res.status(400).json({ error: 'type and name are required' })
+  const known = connectorRegistry.listTypes().find((t) => t.type === type)
+  if (known?.oauth) {
+    return res.status(400).json({ error: `${known.name} requires OAuth sign-in, which isn't configured on this server yet.`, code: 'OAUTH_REQUIRED' })
+  }
   const connectors = configStore.listConnectors()
   const connId = id || `conn-${Date.now()}`
   const cfg = { id: connId, type, name, config: config || {}, enabled: enabled !== false }

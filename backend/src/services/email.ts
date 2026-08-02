@@ -81,3 +81,13 @@ export function lowCreditEmail(to: string, name: string, remaining: number) {
 export function alertEmail(to: string, subject: string, message: string) {
   return sendMail(to, subject, shell(subject, message))
 }
+
+export function verifyEmail(to: string, name: string, link: string) {
+  return sendMail(to, 'Verify your email', shell('Confirm your email, ' + (name || 'there'),
+    `Please verify your email address to secure your account.<br><br><a href="${link}" style="color:#7c3aed">Verify my email →</a><br><br>Or paste this link: ${link}<br><br>This link expires in 24 hours.`))
+}
+
+export function resetPasswordEmail(to: string, name: string, link: string) {
+  return sendMail(to, 'Reset your password', shell('Password reset',
+    `We received a request to reset your Loop GPT password.<br><br><a href="${link}" style="color:#7c3aed">Choose a new password →</a><br><br>Or paste this link: ${link}<br><br>This link expires in 1 hour. If you didn't request this, you can ignore this email.`))
+}
