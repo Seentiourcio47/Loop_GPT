@@ -131,8 +131,9 @@ export default function Home() {
     setLiveArtifacts([])
     setLiveUser({ content, image: preview || undefined })
 
+    let convId: string | null = null
     try {
-      const convId = await ensureConversation(content)
+      convId = await ensureConversation(content)
       let imagePath: string | undefined
       if (image) imagePath = await uploadImage(convId, image)
 
@@ -181,10 +182,17 @@ export default function Home() {
     } finally {
       setRunning(false)
       abortRef.current = null
-      queryClient.invalidateQueries({ queryKey: ['messages', currentConversationId] })
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      // Clear live state shortly after so the persisted message can take over.
-      setTimeout(() => { setLiveUser(null); setLiveSteps([]); setLiveArtifacts([]); setStatusMsg('') }, 400)
+      // Refetch the persisted messages for THIS conversation and wait for the
+      // cache to update before clearing the live run, so the answer never flashes
+      // away. (Uses the concrete convId, not the possibly-stale state value.)
+      if (convId) {
+        await queryClient.invalidateQueries({ queryKey: ['messages', convId] })
+      }
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      setLiveUser(null)
+      setLiveSteps([])
+      setLiveArtifacts([])
+      setStatusMsg('')
     }
   }
 

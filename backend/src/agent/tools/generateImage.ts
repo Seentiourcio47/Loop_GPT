@@ -7,22 +7,40 @@
  */
 import { saveArtifact } from '../artifacts'
 import { imageApiService } from '../../services/imageApi'
-import { fetchBuffer } from '../httpClient'
+import { fetchBuffer, postJson } from '../httpClient'
 import type { ToolDefinition } from '../types'
 
+/**
+ * Generate an image via Hugging Face Inference Providers.
+ *
+ * The legacy `hf-inference` text-to-image route is deprecated, so we use the
+ * provider-routed OpenAI-compatible images endpoint
+ * (`router.huggingface.co/<provider>/v1/images/generations`) and try live
+ * providers in order until one returns an image. Responses come back either as
+ * base64 (`data[].b64_json`) or a URL (`data[].url`), both of which we handle.
+ */
 async function hfTextToImage(prompt: string, model: string): Promise<Buffer> {
-  // HF Inference Providers router — returns raw image bytes.
-  const url = `https://router.huggingface.co/hf-inference/models/${model}`
-  return fetchBuffer(url, {
-    method: 'POST',
-    body: { inputs: prompt },
-    headers: {
-      Authorization: `Bearer ${process.env.HF_TOKEN || ''}`,
-      'Content-Type': 'application/json',
-      Accept: 'image/png',
-    },
-    timeoutMs: 120000,
-  })
+  const configured = process.env.HF_IMAGE_PROVIDER
+  const providers = configured ? [configured] : ['nscale', 'together', 'fal-ai']
+  const auth = { Authorization: `Bearer ${process.env.HF_TOKEN || ''}` }
+  let lastErr = ''
+
+  for (const provider of providers) {
+    try {
+      const data = await postJson<any>(
+        `https://router.huggingface.co/${provider}/v1/images/generations`,
+        { model, prompt, response_format: 'b64_json' },
+        { headers: auth, timeoutMs: 120000 }
+      )
+      const item = data?.data?.[0] || data?.images?.[0]
+      if (item?.b64_json) return Buffer.from(item.b64_json, 'base64')
+      if (item?.url) return fetchBuffer(item.url, { timeoutMs: 60000 })
+      lastErr = `provider ${provider} returned no image`
+    } catch (e: any) {
+      lastErr = `${provider}: ${e?.message || e}`
+    }
+  }
+  throw new Error(lastErr || 'no image provider succeeded')
 }
 
 export const generateImageTool: ToolDefinition = {
