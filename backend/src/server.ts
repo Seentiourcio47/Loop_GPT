@@ -7,14 +7,19 @@ import messageRoutes from './routes/messages'
 import authRoutes from './routes/auth'
 import settingsRoutes from './routes/settings'
 import modelsRoutes from './routes/models'
+import agentRoutes from './routes/agent'
 import { validateEnv } from './middleware/envValidation'
 import { rateLimiter } from './middleware/rateLimiter'
 import { errorLogger } from './middleware/errorLogger'
+import { initAgent } from './agent'
 
 dotenv.config()
 
 // Validate environment variables on startup
 validateEnv()
+
+// Initialize the agent runtime (register tools, connect MCP servers, etc.)
+initAgent().catch((err) => console.error('Agent init error:', err))
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -38,6 +43,8 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/models', modelsRoutes)
 app.use('/api/conversations', conversationRoutes)
 app.use('/api/conversations', messageRoutes)
+app.use('/api/conversations', agentRoutes)
+app.use('/api/agent', agentRoutes)
 
 // Root route
 app.get('/', (req, res) => {
