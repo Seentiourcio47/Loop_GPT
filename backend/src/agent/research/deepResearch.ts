@@ -9,6 +9,7 @@ import { searchWeb, type SearchResult } from '../tools/webSearch'
 import { fetchReadable } from '../tools/webFetch'
 import type { ChatMessage, ToolContext } from '../types'
 import { agentConfig } from '../config'
+import { CONFIDENTIALITY_PROMPT, sanitizeText, sanitizeMetadata, makeStreamSanitizer, guardrailsEnabled } from '../guardrails'
 
 export interface DeepResearchOptions {
   query: string
@@ -111,21 +112,25 @@ export async function runDeepResearch(opts: DeepResearchOptions): Promise<DeepRe
     {
       role: 'system',
       content:
+        (guardrailsEnabled ? CONFIDENTIALITY_PROMPT + '\n\n' : '') +
         'You are a meticulous research analyst. Write a well-structured, comprehensive report answering the user\'s topic using ONLY the provided sources. Cite claims inline with [n] matching the source numbers. Use Markdown headings and bullet points. End with a "Sources" list of [n] title — url.',
     },
     { role: 'user', content: `Topic: ${query}\n\nSOURCES:\n${sourceBlock}` },
   ]
 
+  const sanitizer = makeStreamSanitizer((text) => ctx.emit({ type: 'delta', step, text }))
   const turn = await streamTurn({
     client,
     model,
     messages: synthMessages,
     maxTokens: agentConfig.maxSynthesisTokens,
     signal: ctx.signal,
-    onDelta: (text) => ctx.emit({ type: 'delta', step, text }),
+    onDelta: (text) => sanitizer.push(text),
   })
+  sanitizer.flush()
 
+  const finalContent = sanitizeText(turn.content)
   const citations = sources.map((s) => ({ index: s.index, title: s.title, url: s.url }))
-  ctx.emit({ type: 'final', content: turn.content, metadata: { mode: 'research', sources: citations } })
-  return { content: turn.content, sources: citations }
+  ctx.emit({ type: 'final', content: finalContent, metadata: sanitizeMetadata({ mode: 'research', sources: citations }) })
+  return { content: finalContent, sources: citations }
 }

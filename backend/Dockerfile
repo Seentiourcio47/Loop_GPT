@@ -20,6 +20,8 @@ COPY --from=build /app/dist ./dist
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 # Runtime-generated data (artifacts, config) live under these dirs.
-RUN mkdir -p uploads data
+# Run as the non-root `node` user and give it ownership of the writable dirs.
+RUN mkdir -p uploads data && chown -R node:node /app/uploads /app/data
+USER node
 EXPOSE 3001
 CMD ["./docker-entrypoint.sh"]

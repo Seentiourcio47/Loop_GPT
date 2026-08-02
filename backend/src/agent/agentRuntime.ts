@@ -26,6 +26,7 @@ import type {
   ToolDefinition,
 } from './types'
 import { agentConfig } from './config'
+import { CONFIDENTIALITY_PROMPT, sanitizeText, sanitizeMetadata, makeStreamSanitizer, guardrailsEnabled } from './guardrails'
 
 /** Per-baseURL memo of whether native tool-calling works. */
 const nativeToolSupport = new Map<string, boolean>()
@@ -159,9 +160,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   const client = createClient(provider, apiKey, baseUrl)
   const cfgKey = `${provider}:${baseUrl || process.env.HF_ENDPOINT_URL || ''}`
 
-  // Assemble the working message list with system prompt + tool guide.
+  // Assemble the working message list with system prompt + tool guide. The
+  // confidentiality rules go first so they take precedence.
   const working: ChatMessage[] = []
-  const sys = [systemPrompt, hasTools ? buildToolGuide(tools) : '']
+  const sys = [guardrailsEnabled ? CONFIDENTIALITY_PROMPT : '', systemPrompt, hasTools ? buildToolGuide(tools) : '']
     .filter(Boolean)
     .join('\n\n')
   if (sys) working.push({ role: 'system', content: sys })
@@ -179,6 +181,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   for (let iter = 0; iter < maxSteps; iter++) {
     const useNative = hasTools && nativeToolSupport.get(cfgKey) !== false
 
+    // Sanitize streamed deltas (hold-back buffer catches cross-chunk identifiers).
+    const sanitizer = makeStreamSanitizer((text) => ctx.emit({ type: 'delta', step: stepIndex, text }))
     let turn
     try {
       turn = await streamTurn({
@@ -187,9 +191,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
         messages: working,
         tools: useNative ? openaiTools : undefined,
         signal: ctx.signal,
-        onDelta: (text) => ctx.emit({ type: 'delta', step: stepIndex, text }),
+        onDelta: (text) => sanitizer.push(text),
       })
+      sanitizer.flush()
     } catch (err: any) {
+      sanitizer.flush()
       // If native tool params likely caused the failure, disable and retry.
       if (useNative && nativeToolSupport.get(cfgKey) === undefined) {
         nativeToolSupport.set(cfgKey, false)
@@ -223,7 +229,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
 
     if (calls.length === 0) {
       // No tool requested → this is the final answer.
-      finalContent = turn.content
+      finalContent = sanitizeText(turn.content)
       break
     }
 
@@ -260,11 +266,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   }
 
   if (!finalContent) {
-    finalContent = 'I reached the maximum number of reasoning steps. Here is what I have so far:\n\n' +
-      steps.map((s) => `- ${s.tool}: ${s.result || ''}`).join('\n')
+    finalContent = sanitizeText('I reached the maximum number of reasoning steps. Here is what I have so far:\n\n' +
+      steps.map((s) => `- ${s.tool}: ${s.result || ''}`).join('\n'))
   }
 
-  ctx.emit({ type: 'final', content: finalContent, metadata: { toolsUsed: Array.from(toolsUsed), steps } })
+  ctx.emit({ type: 'final', content: finalContent, metadata: sanitizeMetadata({ toolsUsed: Array.from(toolsUsed), steps }) })
   return { content: finalContent, steps, toolsUsed: Array.from(toolsUsed) }
 }
 

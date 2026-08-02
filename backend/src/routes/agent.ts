@@ -14,6 +14,7 @@ import type { AgentEvent, ChatMessage, ContentPart, ToolContext } from '../agent
 import type { AIProvider } from '../services/aiProviders'
 import { getActiveSkills, buildSkillPrompt, getAllSkills, createUserSkill, deleteUserSkill } from '../agent/skills/skillLoader'
 import { customToolRegistry } from '../agent/customTools'
+import { sanitizeMetadata, detectExtractionAttempt } from '../agent/guardrails'
 import { mcpRegistry } from '../agent/mcp/mcpRegistry'
 import { connectorRegistry } from '../agent/connectors/connectorRegistry'
 import { pluginRegistry } from '../agent/plugins/pluginLoader'
@@ -59,6 +60,10 @@ router.post('/:conversationId/stream', authenticateToken, async (req, res) => {
 
   if (!content && !imagePath) {
     return res.status(400).json({ error: 'Message content or image is required' })
+  }
+
+  if (content && detectExtractionAttempt(content)) {
+    console.warn(`[guardrails] possible prompt-extraction attempt from user ${userId}`)
   }
 
   const conversation = await getOrCreateConversation(userId, conversationId, content || 'New Chat')
@@ -150,7 +155,8 @@ router.post('/:conversationId/stream', authenticateToken, async (req, res) => {
       messageType: artifacts.some((a) => a.kind === 'image') ? 'image' : 'text',
       imageUrl: artifacts.find((a) => a.kind === 'image')?.url || null,
       toolUsed: mode,
-      metadata: { ...finalMetadata, artifacts, provider, model },
+      // Redact model/provider from client-facing metadata (guardrails).
+      metadata: sanitizeMetadata({ ...finalMetadata, artifacts, provider, model }),
     })
   } catch (error: any) {
     sendEvent(res, { type: 'error', message: error?.message || 'Agent run failed' })
