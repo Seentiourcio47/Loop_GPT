@@ -8,6 +8,7 @@ import authRoutes from './routes/auth'
 import settingsRoutes from './routes/settings'
 import modelsRoutes from './routes/models'
 import agentRoutes from './routes/agent'
+import telemetryRoutes from './routes/telemetry'
 import { validateEnv } from './middleware/envValidation'
 import { rateLimiter } from './middleware/rateLimiter'
 import { errorLogger } from './middleware/errorLogger'
@@ -45,6 +46,7 @@ app.use('/api/conversations', conversationRoutes)
 app.use('/api/conversations', messageRoutes)
 app.use('/api/conversations', agentRoutes)
 app.use('/api/agent', agentRoutes)
+app.use('/api/telemetry', telemetryRoutes)
 
 // Root route
 app.get('/', (req, res) => {

@@ -20,6 +20,13 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   conversations Conversation[]
+
+  // Plan & metering (freemium)
+  plan             String   @default("free") // 'free' | 'pro'
+  credits          Int      @default(30)     // remaining daily message credits
+  creditsResetAt   DateTime @default(now())
+  // Consent to use interactions for product improvement / model training.
+  consentTraining  Boolean  @default(false)
 }
 
 model Conversation {
