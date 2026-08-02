@@ -66,6 +66,7 @@ export default function Home() {
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([])
   const [liveArtifacts, setLiveArtifacts] = useState<ArtifactRef[]>([])
   const [toolCount, setToolCount] = useState(0)
+  const autoOpenedRef = useRef(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -91,6 +92,13 @@ export default function Home() {
     fetch(`${API_URL}/api/agent/tools`, { headers: authHeaders() }).then((r) => r.json()).then((t) => setToolCount(t.length || 0)).catch(() => {})
   }, [])
 
+  // On-demand Activity panel: open once when a run first produces a tool step or
+  // an artifact (Claude's artifact-panel behavior). Won't reopen if manually closed.
+  useEffect(() => {
+    const hasActivity = liveSteps.some((s) => s.kind === 'tool') || liveArtifacts.length > 0
+    if (hasActivity && !autoOpenedRef.current) { autoOpenedRef.current = true; setComputerOpen(true) }
+  }, [liveSteps, liveArtifacts])
+
   // Responsive panels: on desktop the rail + computer are docked open; on mobile
   // they're overlays that start closed. Track the breakpoint live.
   useEffect(() => {
@@ -99,7 +107,7 @@ export default function Home() {
     const apply = () => {
       setIsDesktop(mq.matches)
       setSidebarOpen(mq.matches)
-      setComputerOpen(mq.matches)
+      // Activity panel is on-demand (opens when a tool runs), not docked by default.
     }
     apply()
     mq.addEventListener('change', apply)
@@ -155,8 +163,8 @@ export default function Home() {
     const preview = imagePreview
     setInput(''); setSelectedImage(null); setImagePreview(null)
     setRunning(true); setStatusMsg(''); setLiveSteps([]); setLiveArtifacts([])
+    autoOpenedRef.current = false
     setLiveUser({ content, image: preview || undefined })
-    if (!computerOpen && sendMode !== 'chat') setComputerOpen(true)
     track('message_sent', { mode: sendMode })
 
     let convId: string | null = null
@@ -251,15 +259,15 @@ export default function Home() {
             className="fixed lg:relative inset-y-0 left-0 w-[264px] max-w-[82vw] shrink-0 glass-strong lg:glass border-r border-white/5 flex flex-col h-full z-40 lg:z-20 pt-[env(safe-area-inset-top)] lg:pt-0"
           >
             <div className="px-4 pt-4 pb-3 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-violet to-neon-cyan flex items-center justify-center shadow-glow">
+              <div className="w-7 h-7 rounded-lg bg-[#c96442] flex items-center justify-center">
                 <Sparkles size={15} className="text-white" />
               </div>
-              <span className="font-semibold text-gradient text-[15px]">Loop GPT</span>
+              <span className="font-semibold text-slate-100 text-[15px]">Loop GPT</span>
               <button onClick={() => setSidebarOpen(false)} className="ml-auto p-1.5 rounded-lg hover:bg-white/5 text-slate-400"><PanelLeft size={16} /></button>
             </div>
             <div className="px-3">
               <button onClick={() => { selectConversation(null); closeOverlays() }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow">
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-white bg-[#c96442] hover:bg-[#b5593a] transition">
                 <Plus size={17} strokeWidth={2.5} /> New session
               </button>
             </div>
@@ -292,7 +300,7 @@ export default function Home() {
                 <CreditCard size={15} /> Account & billing
               </Link>
               {getStoredUser()?.role === 'admin' && (
-                <Link href="/admin" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neon-violet hover:bg-white/5 border border-neon-violet/20">
+                <Link href="/admin" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#c96442] hover:bg-white/5 border border-white/10">
                   <ShieldCheck size={15} /> Admin portal
                 </Link>
               )}
@@ -308,7 +316,7 @@ export default function Home() {
           <span className="text-sm font-medium text-slate-300 truncate">{conversations.find((c) => c.id === currentConversationId)?.title || 'New session'}</span>
           <div className="ml-auto flex items-center gap-1">
             <button onClick={() => (computerOpen ? setComputerOpen(false) : openComputer())} title="Toggle Agent Computer"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition ${computerOpen ? 'border-neon-violet/40 text-neon-violet bg-neon-violet/10' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition ${computerOpen ? 'border-white/15 text-slate-200 bg-white/10' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>
               <Cpu size={14} /> <span className="hidden sm:inline">Computer</span>
             </button>
           </div>
@@ -390,7 +398,7 @@ export default function Home() {
                 <button type="button" onClick={stopRun} className="p-2.5 mb-1.5 rounded-lg text-slate-300 hover:text-rose-400" title="Stop"><X size={19} /></button>
               ) : (
                 <button type="submit" disabled={!input.trim() && !selectedImage}
-                  className="p-2 mb-1.5 mr-0.5 rounded-xl text-white bg-gradient-to-br from-neon-violet to-neon-indigo disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90 transition" title="Send">
+                  className="p-2 mb-1.5 mr-0.5 rounded-xl text-white bg-[#c96442] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#b5593a] transition" title="Send">
                   <Send size={18} />
                 </button>
               )}
@@ -425,7 +433,7 @@ function Avatar({ role, running }: { role: 'user' | 'assistant'; running?: boole
 }
 
 function Dots() {
-  return <div className="flex gap-1.5 py-1">{[0, 150, 300].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-neon-violet/70 animate-bounce" style={{ animationDelay: `${d}ms` }} />)}</div>
+  return <div className="flex gap-1.5 py-1">{[0, 150, 300].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-slate-400/70 animate-bounce" style={{ animationDelay: `${d}ms` }} />)}</div>
 }
 
 function MessageBubble({ message, fmtTime }: { message: Message; fmtTime: (s: string) => string }) {
