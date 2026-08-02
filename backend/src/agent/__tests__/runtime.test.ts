@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { registerBuiltinTools } from '../index'
-import { parseInlineToolCall } from '../agentRuntime'
+import { parseInlineToolCall, parseInlineToolCalls } from '../agentRuntime'
 import { toolRegistry } from '../toolRegistry'
 import type { ToolDefinition, ToolContext } from '../types'
 
@@ -28,6 +28,19 @@ describe('parseInlineToolCall (ReAct fallback)', () => {
 
   it('returns null for JSON referencing an unknown tool', () => {
     expect(parseInlineToolCall('{"tool":"nope","arguments":{}}')).toBeNull()
+  })
+
+  it('parses MULTIPLE <tool_call> blocks in one turn', () => {
+    const content =
+      '<tool_call>\n{"tool": "calculator", "arguments": {"expression": "19 * 23"}}\n</tool_call>\n' +
+      '<tool_call>\n{"tool": "get_current_time", "arguments": {"timezone": "Asia/Tokyo"}}\n</tool_call>'
+    const calls = parseInlineToolCalls(content)
+    expect(calls.map((c) => c.name)).toEqual(['calculator', 'get_current_time'])
+  })
+
+  it('parses multiple bare JSON objects', () => {
+    const calls = parseInlineToolCalls('{"tool":"calculator","arguments":{"expression":"1+1"}} {"tool":"web_search","args":{"query":"x"}}')
+    expect(calls.length).toBe(2)
   })
 })
 

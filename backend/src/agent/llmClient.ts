@@ -10,6 +10,7 @@ import OpenAI from 'openai'
 import type { AIProvider } from '../services/aiProviders'
 import { getHFBaseUrl, getHFModel } from '../services/aiProviders'
 import type { ChatMessage } from './types'
+import { agentConfig } from './config'
 
 export interface OpenAITargetConfig {
   baseURL?: string
@@ -66,7 +67,7 @@ export function createClient(provider: AIProvider, apiKey?: string, baseUrl?: st
   return new OpenAI({
     apiKey: cfg.apiKey || 'sk-no-key',
     baseURL: cfg.baseURL,
-    timeout: 180_000, // tolerate scale-to-zero cold starts
+    timeout: agentConfig.requestTimeoutMs, // tolerate cold starts + long generations
     maxRetries: 0,
   })
 }
@@ -105,8 +106,8 @@ export async function streamTurn(opts: StreamTurnOptions): Promise<StreamTurnRes
   const params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
     model,
     messages: messages as any,
-    temperature: opts.temperature ?? 0.7,
-    max_tokens: opts.maxTokens ?? 2000,
+    temperature: opts.temperature ?? agentConfig.temperature,
+    max_tokens: opts.maxTokens ?? agentConfig.maxTokens,
     stream: true,
   }
   if (tools && tools.length > 0) {

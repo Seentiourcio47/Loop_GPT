@@ -12,11 +12,13 @@ import { toolRegistry } from '../agent/toolRegistry'
 import { initSSE, sendEvent, endSSE, makeEmitter } from '../agent/streaming'
 import type { AgentEvent, ChatMessage, ContentPart, ToolContext } from '../agent/types'
 import type { AIProvider } from '../services/aiProviders'
-import { getActiveSkills, buildSkillPrompt, getAllSkills } from '../agent/skills/skillLoader'
+import { getActiveSkills, buildSkillPrompt, getAllSkills, createUserSkill, deleteUserSkill } from '../agent/skills/skillLoader'
+import { customToolRegistry } from '../agent/customTools'
 import { mcpRegistry } from '../agent/mcp/mcpRegistry'
 import { connectorRegistry } from '../agent/connectors/connectorRegistry'
 import { pluginRegistry } from '../agent/plugins/pluginLoader'
 import { configStore } from '../agent/configStore'
+import { agentConfig } from '../agent/config'
 
 const router = express.Router()
 
@@ -81,8 +83,8 @@ router.post('/:conversationId/stream', authenticateToken, async (req, res) => {
   const emit = makeEmitter(res)
   const ctx: ToolContext = { userId, conversationId: conversation.id, emit, signal: abort.signal, scratch: {} }
 
-  // Build message history + current turn.
-  const history = await getHistory(conversation.id, 20)
+  // Build message history + current turn (conversation memory window).
+  const history = await getHistory(conversation.id, agentConfig.historyWindow)
   const priorTurns: ChatMessage[] = history
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .slice(0, -1) // exclude the user message we just saved (re-added below with image)
@@ -248,6 +250,62 @@ router.post('/skills/:id', authenticateToken, (req, res) => {
   else set.delete(req.params.id)
   configStore.setEnabledSkills(Array.from(set))
   res.json({ id: req.params.id, enabled: !!enabled })
+})
+
+// Create a user skill (skill creator).
+router.post('/skills', authenticateToken, (req, res) => {
+  const { name, description, instructions, triggers, tools, enable } = req.body || {}
+  if (!name || !instructions) return res.status(400).json({ error: 'name and instructions are required' })
+  const skill = createUserSkill({
+    name,
+    description: description || '',
+    instructions,
+    triggers: Array.isArray(triggers) ? triggers : typeof triggers === 'string' ? triggers.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
+    tools: Array.isArray(tools) ? tools : undefined,
+  })
+  if (enable !== false) {
+    const set = new Set(configStore.getEnabledSkills())
+    set.add(skill.id)
+    configStore.setEnabledSkills(Array.from(set))
+  }
+  res.json({ ...skill, enabled: enable !== false, builtin: false })
+})
+
+// Delete a user skill.
+router.delete('/skills/:id', authenticateToken, (req, res) => {
+  const ok = deleteUserSkill(req.params.id)
+  const set = new Set(configStore.getEnabledSkills())
+  set.delete(req.params.id)
+  configStore.setEnabledSkills(Array.from(set))
+  res.json({ ok })
+})
+
+// ---- Custom webhook tools (plugin/tool builder) ----------------------------
+router.get('/custom-tools', authenticateToken, (_req, res) => {
+  res.json(customToolRegistry.list())
+})
+
+router.post('/custom-tools', authenticateToken, (req, res) => {
+  const { id, name, description, method, url, headers, params, enabled } = req.body || {}
+  if (!name || !url) return res.status(400).json({ error: 'name and url are required' })
+  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(name)) return res.status(400).json({ error: 'name must be a valid identifier (letters, numbers, underscores)' })
+  const cfg = {
+    id: id || `custom-${Date.now()}`,
+    name,
+    description: description || `Custom tool ${name}`,
+    method: method === 'GET' ? 'GET' : 'POST',
+    url,
+    headers: headers || {},
+    params: Array.isArray(params) ? params : [],
+    enabled: enabled !== false,
+  } as const
+  customToolRegistry.upsert(cfg as any)
+  res.json(cfg)
+})
+
+router.delete('/custom-tools/:id', authenticateToken, (req, res) => {
+  customToolRegistry.remove(req.params.id)
+  res.json({ ok: true })
 })
 
 // ---- Plugins ----------------------------------------------------------------

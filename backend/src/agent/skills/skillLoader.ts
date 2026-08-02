@@ -77,6 +77,47 @@ export function getAllSkills(): Skill[] {
   return [...BUILTIN_SKILLS.map((s) => ({ ...s, builtin: true })), ...loadUserSkills()]
 }
 
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || `skill-${Date.now()}`
+}
+
+/** Create (or overwrite) a user skill by writing skills/<id>/SKILL.md. */
+export function createUserSkill(input: {
+  id?: string
+  name: string
+  description: string
+  instructions: string
+  triggers?: string[]
+  tools?: string[]
+}): Skill {
+  const id = input.id || slugify(input.name)
+  const dir = path.join(USER_SKILL_DIR, id)
+  fs.mkdirSync(dir, { recursive: true })
+  const fm = [
+    '---',
+    `name: ${input.name}`,
+    `description: ${input.description}`,
+    input.triggers?.length ? `triggers: ${input.triggers.join(', ')}` : '',
+    input.tools?.length ? `tools: ${input.tools.join(', ')}` : '',
+    '---',
+    '',
+    input.instructions.trim(),
+    '',
+  ].filter((l) => l !== '').join('\n')
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), fm)
+  return { id, name: input.name, description: input.description, instructions: input.instructions, triggers: input.triggers, tools: input.tools }
+}
+
+/** Delete a user skill directory. Built-in skills cannot be deleted. */
+export function deleteUserSkill(id: string): boolean {
+  const dir = path.join(USER_SKILL_DIR, id)
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true })
+    return true
+  }
+  return false
+}
+
 export function getSkill(id: string): Skill | undefined {
   return getAllSkills().find((s) => s.id === id)
 }

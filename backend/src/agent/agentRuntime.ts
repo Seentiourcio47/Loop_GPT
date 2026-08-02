@@ -25,6 +25,7 @@ import type {
   RunAgentOptions,
   ToolDefinition,
 } from './types'
+import { agentConfig } from './config'
 
 /** Per-baseURL memo of whether native tool-calling works. */
 const nativeToolSupport = new Map<string, boolean>()
@@ -52,36 +53,72 @@ function buildToolGuide(tools: ToolDefinition[]): string {
   ].join('\n')
 }
 
-/** Try to extract an inline JSON tool call from a model turn. */
-export function parseInlineToolCall(
-  content: string
-): { name: string; args: Record<string, any> } | null {
-  if (!content) return null
-  const candidates: string[] = []
-
-  // Fenced ```json ... ``` blocks.
-  const fenceRe = /```(?:json)?\s*([\s\S]*?)```/gi
-  let m: RegExpExecArray | null
-  while ((m = fenceRe.exec(content))) candidates.push(m[1])
-
-  // The largest bare {...} span.
-  const first = content.indexOf('{')
-  const last = content.lastIndexOf('}')
-  if (first !== -1 && last > first) candidates.push(content.slice(first, last + 1))
-
-  for (const raw of candidates) {
-    try {
-      const obj = JSON.parse(raw.trim())
-      const name = obj.tool || obj.tool_name || obj.name || obj.action
-      const args = obj.arguments || obj.args || obj.parameters || obj.input || {}
-      if (name && typeof name === 'string' && toolRegistry.has(name)) {
-        return { name, args: typeof args === 'object' && args ? args : {} }
-      }
-    } catch {
-      // not valid JSON, try next candidate
+/** Extract all top-level balanced {...} JSON object substrings from text. */
+function extractBalancedObjects(s: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let start = -1
+  let inStr = false
+  let esc = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (c === '\\') esc = true
+      else if (c === '"') inStr = false
+      continue
     }
+    if (c === '"') inStr = true
+    else if (c === '{') { if (depth === 0) start = i; depth++ }
+    else if (c === '}') { depth--; if (depth === 0 && start >= 0) { out.push(s.slice(start, i + 1)); start = -1 } }
+  }
+  return out
+}
+
+function coerceCall(raw: string): { name: string; args: Record<string, any> } | null {
+  try {
+    const obj = JSON.parse(raw.trim())
+    const name = obj.tool || obj.tool_name || obj.name || obj.action
+    const args = obj.arguments || obj.args || obj.parameters || obj.input || {}
+    if (name && typeof name === 'string' && toolRegistry.has(name)) {
+      return { name, args: typeof args === 'object' && args ? args : {} }
+    }
+  } catch {
+    /* not valid JSON */
   }
   return null
+}
+
+/**
+ * Extract ALL inline tool calls from a model turn. Handles the common formats a
+ * llama.cpp / Qwen / Hermes model emits: <tool_call>{...}</tool_call> blocks,
+ * fenced ```json blocks, and bare balanced {...} objects — including MULTIPLE
+ * calls in a single turn.
+ */
+export function parseInlineToolCalls(content: string): Array<{ name: string; args: Record<string, any> }> {
+  if (!content) return []
+  const calls: Array<{ name: string; args: Record<string, any> }> = []
+  const add = (raw: string) => { const c = coerceCall(raw); if (c) calls.push(c) }
+
+  // 1. <tool_call>...</tool_call> (and <tool_code>) tagged blocks.
+  const tagRe = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/gi
+  let m: RegExpExecArray | null
+  while ((m = tagRe.exec(content))) add(m[1])
+  if (calls.length) return calls
+
+  // 2. Fenced ```json blocks.
+  const fenceRe = /```(?:json|tool_call)?\s*([\s\S]*?)```/gi
+  while ((m = fenceRe.exec(content))) add(m[1])
+  if (calls.length) return calls
+
+  // 3. Bare balanced {...} objects (handles multiple).
+  for (const obj of extractBalancedObjects(content)) add(obj)
+  return calls
+}
+
+/** Backwards-compatible single-call helper. */
+export function parseInlineToolCall(content: string): { name: string; args: Record<string, any> } | null {
+  return parseInlineToolCalls(content)[0] || null
 }
 
 /**
@@ -94,7 +131,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     apiKey,
     baseUrl,
     ctx,
-    maxSteps = 8,
+    maxSteps = agentConfig.maxSteps,
     systemPrompt,
     toolNames,
   } = opts
@@ -167,66 +204,59 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
       nativeToolSupport.set(cfgKey, true)
     }
 
-    // Determine whether a tool was requested (native first, then inline JSON).
-    let toolName: string | null = null
-    let toolArgs: Record<string, any> = {}
-    let nativeCallId: string | undefined
+    // Determine which tool(s) were requested — native array first, else inline.
+    // A single turn may request MULTIPLE tools; we execute them all.
+    const MAX_CALLS_PER_TURN = 8
+    let calls: Array<{ id?: string; name: string; args: Record<string, any> }> = []
+    const native = turn.toolCalls.length > 0
 
-    if (turn.toolCalls.length > 0) {
-      const call = turn.toolCalls[0]
-      toolName = call.name
-      nativeCallId = call.id
-      try {
-        toolArgs = call.arguments ? JSON.parse(call.arguments) : {}
-      } catch {
-        toolArgs = {}
-      }
+    if (native) {
+      calls = turn.toolCalls.map((c) => {
+        let args: Record<string, any> = {}
+        try { args = c.arguments ? JSON.parse(c.arguments) : {} } catch { args = {} }
+        return { id: c.id, name: c.name, args }
+      })
     } else if (hasTools) {
-      const inline = parseInlineToolCall(turn.content)
-      if (inline) {
-        toolName = inline.name
-        toolArgs = inline.args
-      }
+      calls = parseInlineToolCalls(turn.content)
     }
+    calls = calls.filter((c) => c.name && toolRegistry.has(c.name)).slice(0, MAX_CALLS_PER_TURN)
 
-    if (!toolName) {
+    if (calls.length === 0) {
       // No tool requested → this is the final answer.
       finalContent = turn.content
       break
     }
 
-    // Execute the tool.
-    ctx.emit({ type: 'tool_call', step: stepIndex, name: toolName, args: toolArgs, source: toolRegistry.get(toolName)?.source })
-    toolsUsed.add(toolName)
-    const result = await toolRegistry.execute(toolName, toolArgs, ctx)
-    ctx.emit({
-      type: 'tool_result',
-      step: stepIndex,
-      name: toolName,
-      content: truncate(result.content, 4000),
-      data: result.data,
-      isError: result.isError,
-    })
-    steps.push({ tool: toolName, args: toolArgs, result: truncate(result.content, 2000) })
-
-    // Append the exchange to the working context for the next turn.
-    if (nativeCallId) {
+    // Record the assistant turn (with native tool_calls when applicable).
+    if (native) {
       working.push({
         role: 'assistant',
         content: turn.content || '',
         // @ts-expect-error tool_calls is valid on assistant messages
-        tool_calls: [
-          { id: nativeCallId, type: 'function', function: { name: toolName, arguments: JSON.stringify(toolArgs) } },
-        ],
+        tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.args) } })),
       })
-      working.push({ role: 'tool', tool_call_id: nativeCallId, name: toolName, content: result.content })
     } else {
-      // Inline-JSON mode: use plain messages that any server accepts.
       working.push({ role: 'assistant', content: turn.content })
-      working.push({ role: 'user', content: `TOOL_RESULT (${toolName}):\n${result.content}` })
     }
 
-    stepIndex++
+    // Execute every requested tool (the first reuses this turn's step index so
+    // the UI replaces any streamed tool-call text with a tool card).
+    const inlineResults: string[] = []
+    for (const call of calls) {
+      ctx.emit({ type: 'tool_call', step: stepIndex, name: call.name, args: call.args, source: toolRegistry.get(call.name)?.source })
+      toolsUsed.add(call.name)
+      const result = await toolRegistry.execute(call.name, call.args, ctx)
+      ctx.emit({ type: 'tool_result', step: stepIndex, name: call.name, content: truncate(result.content, 4000), data: result.data, isError: result.isError })
+      steps.push({ tool: call.name, args: call.args, result: truncate(result.content, 2000) })
+
+      if (native) {
+        working.push({ role: 'tool', tool_call_id: call.id, name: call.name, content: result.content })
+      } else {
+        inlineResults.push(`TOOL_RESULT (${call.name}):\n${result.content}`)
+      }
+      stepIndex++
+    }
+    if (!native) working.push({ role: 'user', content: inlineResults.join('\n\n') })
   }
 
   if (!finalContent) {

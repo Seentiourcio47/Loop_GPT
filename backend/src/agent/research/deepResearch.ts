@@ -8,6 +8,7 @@ import { createClient, resolveModel, completeOnce, streamTurn } from '../llmClie
 import { searchWeb, type SearchResult } from '../tools/webSearch'
 import { fetchReadable } from '../tools/webFetch'
 import type { ChatMessage, ToolContext } from '../types'
+import { agentConfig } from '../config'
 
 export interface DeepResearchOptions {
   query: string
@@ -47,8 +48,8 @@ export async function runDeepResearch(opts: DeepResearchOptions): Promise<DeepRe
   const { ctx, query } = opts
   const model = resolveModel(opts.provider, opts.model)
   const client = createClient(opts.provider, opts.apiKey, opts.baseUrl)
-  const maxQueries = opts.maxQueries ?? 4
-  const maxSources = opts.maxSources ?? 6
+  const maxQueries = opts.maxQueries ?? agentConfig.research.maxQueries
+  const maxSources = opts.maxSources ?? agentConfig.research.maxSources
 
   let step = 0
   ctx.emit({ type: 'warming', message: 'Planning research…' })
@@ -119,7 +120,7 @@ export async function runDeepResearch(opts: DeepResearchOptions): Promise<DeepRe
     client,
     model,
     messages: synthMessages,
-    maxTokens: 3000,
+    maxTokens: agentConfig.maxSynthesisTokens,
     signal: ctx.signal,
     onDelta: (text) => ctx.emit({ type: 'delta', step, text }),
   })

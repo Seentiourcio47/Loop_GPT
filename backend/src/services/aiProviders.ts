@@ -303,7 +303,7 @@ export class AIProviderService {
     const client = new OpenAI({
       apiKey: apiKey || process.env.HF_TOKEN || 'sk-no-key',
       baseURL: getHFBaseUrl(baseUrl),
-      timeout: 180_000, // 3 min for cold starts
+      timeout: Number(process.env.HF_REQUEST_TIMEOUT_MS) || 300_000,
       maxRetries: 0,
     })
 
@@ -311,8 +311,8 @@ export class AIProviderService {
       const completion = await client.chat.completions.create({
         model: getHFModel(model),
         messages: messages as any,
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: Number(process.env.AGENT_TEMPERATURE) || 0.7,
+        max_tokens: Number(process.env.HF_MAX_TOKENS) || 8192,
       })
       return completion.choices[0]?.message?.content || ''
     }

@@ -70,11 +70,46 @@ const githubConnector: ConnectorType = {
   },
 }
 
+/** Reference connector: a generic REST/HTTP API base with optional auth header. */
+const httpConnector: ConnectorType = {
+  type: 'http',
+  name: 'HTTP API',
+  description: 'Call any REST API. Exposes an http_get tool scoped to a base URL, with an optional auth header.',
+  fields: [
+    { key: 'baseUrl', label: 'Base URL (e.g. https://api.example.com)', required: true },
+    { key: 'authHeader', label: 'Auth header name (optional, e.g. Authorization)' },
+    { key: 'authValue', label: 'Auth header value (optional)', secret: true },
+  ],
+  createTools(cfg) {
+    const base = (cfg.config.baseUrl || '').replace(/\/+$/, '')
+    const headers: Record<string, string> = {}
+    if (cfg.config.authHeader && cfg.config.authValue) headers[cfg.config.authHeader] = cfg.config.authValue
+    const id = cfg.id
+    return [
+      {
+        name: `connector__${id}__http_get`,
+        source: `connector:${id}`,
+        description: `[${cfg.name}] GET a path from ${base}. Args: path (e.g. "/v1/items?limit=5").`,
+        parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+        async handler(args) {
+          const path = String(args.path || '')
+          const url = path.startsWith('http') ? path : `${base}${path.startsWith('/') ? '' : '/'}${path}`
+          const res = await fetch(url, { headers })
+          const text = await res.text()
+          if (!res.ok) return { content: `HTTP ${res.status}: ${text.slice(0, 500)}`, isError: true }
+          return { content: text.slice(0, 6000) }
+        },
+      },
+    ]
+  },
+}
+
 class ConnectorRegistry {
   private types = new Map<string, ConnectorType>()
 
   constructor() {
     this.registerType(githubConnector)
+    this.registerType(httpConnector)
   }
 
   registerType(t: ConnectorType) {

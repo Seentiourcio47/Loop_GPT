@@ -49,6 +49,25 @@ export interface ConnectorConfig {
   enabled: boolean
 }
 
+export interface CustomToolParam {
+  name: string
+  type: 'string' | 'number' | 'boolean'
+  required?: boolean
+  description?: string
+}
+
+/** A user-built "webhook tool" (the plugin builder). Calls an HTTP endpoint. */
+export interface CustomToolConfig {
+  id: string
+  name: string
+  description: string
+  method: 'GET' | 'POST'
+  url: string // supports {param} placeholders
+  headers?: Record<string, string>
+  params: CustomToolParam[]
+  enabled: boolean
+}
+
 export const configStore = {
   listMcpServers(): McpServerConfig[] {
     return read<McpServerConfig[]>('mcp-servers', [])
@@ -73,5 +92,11 @@ export const configStore = {
   },
   setEnabledPlugins(ids: string[]) {
     write('enabled-plugins', ids)
+  },
+  listCustomTools(): CustomToolConfig[] {
+    return read<CustomToolConfig[]>('custom-tools', [])
+  },
+  saveCustomTools(tools: CustomToolConfig[]) {
+    write('custom-tools', tools)
   },
 }

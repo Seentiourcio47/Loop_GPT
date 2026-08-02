@@ -12,6 +12,7 @@ import { createDocumentTool } from './tools/createDocument'
 import { mcpRegistry } from './mcp/mcpRegistry'
 import { connectorRegistry } from './connectors/connectorRegistry'
 import { pluginRegistry } from './plugins/pluginLoader'
+import { customToolRegistry } from './customTools'
 
 const BUILTIN_TOOLS = [
   webSearchTool,
@@ -43,6 +44,11 @@ export async function initAgent() {
     pluginRegistry.init()
   } catch (e) {
     console.warn('Plugin init failed:', (e as any)?.message)
+  }
+  try {
+    customToolRegistry.init()
+  } catch (e) {
+    console.warn('Custom tools init failed:', (e as any)?.message)
   }
   try {
     await mcpRegistry.init()
