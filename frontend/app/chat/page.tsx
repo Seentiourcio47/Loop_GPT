@@ -35,8 +35,9 @@ const MODES: { id: AgentMode; label: string; icon: any; hint: string }[] = [
 ]
 
 export default function Home() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [computerOpen, setComputerOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [computerOpen, setComputerOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [mode, setMode] = useState<AgentMode>('agent')
@@ -76,6 +77,26 @@ export default function Home() {
   useEffect(() => {
     fetch(`${API_URL}/api/agent/tools`, { headers: authHeaders() }).then((r) => r.json()).then((t) => setToolCount(t.length || 0)).catch(() => {})
   }, [])
+
+  // Responsive panels: on desktop the rail + computer are docked open; on mobile
+  // they're overlays that start closed. Track the breakpoint live.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const apply = () => {
+      setIsDesktop(mq.matches)
+      setSidebarOpen(mq.matches)
+      setComputerOpen(mq.matches)
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+
+  // On mobile, opening the computer should close the rail (and vice-versa) so a
+  // single overlay is visible at a time.
+  const openComputer = () => { setComputerOpen(true); if (!isDesktop) setSidebarOpen(false) }
+  const closeOverlays = () => { if (!isDesktop) { setSidebarOpen(false); setComputerOpen(false) } }
 
   // Auth guard: if not signed in and the backend doesn't allow guest access,
   // send the visitor to login instead of letting API calls silently 401.
@@ -200,13 +221,18 @@ export default function Home() {
   const showEmpty = messages.length === 0 && !liveUser
 
   return (
-    <div className="flex h-screen overflow-hidden text-slate-200">
+    <div className="flex h-[100dvh] overflow-hidden text-slate-200">
+      {/* Mobile backdrop for the overlay panels */}
+      {(sidebarOpen || computerOpen) && !isDesktop && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={closeOverlays} />
+      )}
+
       {/* ============ Left rail ============ */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
           <motion.aside
             initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="w-[264px] shrink-0 glass border-r border-white/5 flex flex-col h-full z-20"
+            className="fixed lg:relative inset-y-0 left-0 w-[264px] max-w-[82vw] shrink-0 glass-strong lg:glass border-r border-white/5 flex flex-col h-full z-40 lg:z-20"
           >
             <div className="px-4 pt-4 pb-3 flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-violet to-neon-cyan flex items-center justify-center shadow-glow">
@@ -216,7 +242,7 @@ export default function Home() {
               <button onClick={() => setSidebarOpen(false)} className="ml-auto p-1.5 rounded-lg hover:bg-white/5 text-slate-400"><PanelLeft size={16} /></button>
             </div>
             <div className="px-3">
-              <button onClick={() => selectConversation(null)}
+              <button onClick={() => { selectConversation(null); closeOverlays() }}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow">
                 <Plus size={17} strokeWidth={2.5} /> New session
               </button>
@@ -230,7 +256,7 @@ export default function Home() {
                       onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                       className="w-full m-1 px-2 py-1 text-sm bg-ink-800 border border-white/10 rounded text-slate-100" />
                   ) : (
-                    <button onClick={() => selectConversation(c.id)} className="w-full text-left px-3 py-2 text-[13px] text-slate-300 flex items-center gap-2">
+                    <button onClick={() => { selectConversation(c.id); closeOverlays() }} className="w-full text-left px-3 py-2 text-[13px] text-slate-300 flex items-center gap-2">
                       <MessageSquare size={13} className="text-slate-500 shrink-0" />
                       <span className="truncate flex-1">{c.title || 'New session'}</span>
                       <span className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
@@ -261,26 +287,26 @@ export default function Home() {
 
       {/* ============ Center: chat ============ */}
       <div className="flex-1 flex flex-col h-full min-w-0 relative">
-        <div className="flex items-center gap-2 px-4 h-12 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-2 px-3 sm:px-4 h-12 border-b border-white/5 shrink-0">
           {!sidebarOpen && <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400"><PanelLeft size={17} /></button>}
           <span className="text-sm font-medium text-slate-300 truncate">{conversations.find((c) => c.id === currentConversationId)?.title || 'New session'}</span>
           <div className="ml-auto flex items-center gap-1">
-            <button onClick={() => setComputerOpen((v) => !v)} title="Toggle Agent Computer"
+            <button onClick={() => (computerOpen ? setComputerOpen(false) : openComputer())} title="Toggle Agent Computer"
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition ${computerOpen ? 'border-neon-violet/40 text-neon-violet bg-neon-violet/10' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>
-              <Cpu size={14} /> Computer
+              <Cpu size={14} /> <span className="hidden sm:inline">Computer</span>
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6">
           {showEmpty ? (
-            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center">
+            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center px-2">
               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}
-                className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-violet via-neon-indigo to-neon-cyan flex items-center justify-center shadow-glow mb-6">
-                <Sparkles size={30} className="text-white" />
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-neon-violet via-neon-indigo to-neon-cyan flex items-center justify-center shadow-glow mb-5 sm:mb-6">
+                <Sparkles size={28} className="text-white" />
               </motion.div>
-              <h1 className="text-4xl font-semibold tracking-tight mb-3"><span className="text-gradient">How can I help you today?</span></h1>
-              <p className="text-slate-400 max-w-md">Search the web, run deep research, read &amp; generate images, and produce documents — with every tool call streamed live to the Agent Computer.</p>
+              <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight mb-3"><span className="text-gradient">How can I help you today?</span></h1>
+              <p className="text-slate-400 text-sm sm:text-base max-w-md">Search the web, run deep research, read &amp; generate images, and produce documents — with every tool call streamed live to the Agent Computer.</p>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-5">
@@ -317,9 +343,9 @@ export default function Home() {
         </div>
 
         {/* Composer */}
-        <div className="border-t border-white/5 px-4 py-4">
+        <div className="border-t border-white/5 px-3 sm:px-4 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center flex-wrap gap-1.5 mb-2">
               {MODES.map((m) => {
                 const Icon = m.icon
                 const active = mode === m.id
@@ -362,8 +388,8 @@ export default function Home() {
       <AnimatePresence initial={false}>
         {computerOpen && (
           <motion.aside initial={{ x: 400, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 400, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-            className="hidden lg:flex w-[380px] shrink-0 p-3 h-full">
-            <AgentComputer running={running} status={statusMsg} steps={liveSteps} artifacts={liveArtifacts} toolCount={toolCount} />
+            className="fixed lg:relative inset-y-0 right-0 z-40 lg:z-auto flex w-full max-w-[92vw] sm:max-w-[440px] lg:w-[380px] lg:max-w-none shrink-0 p-2.5 sm:p-3 h-full">
+            <AgentComputer running={running} status={statusMsg} steps={liveSteps} artifacts={liveArtifacts} toolCount={toolCount} onClose={() => setComputerOpen(false)} />
           </motion.aside>
         )}
       </AnimatePresence>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Cpu, Terminal, Circle, Loader2, CheckCircle2, XCircle, FileDown, Image as ImageIcon } from 'lucide-react'
+import { Cpu, Terminal, Circle, Loader2, CheckCircle2, XCircle, FileDown, Image as ImageIcon, X } from 'lucide-react'
 import { API_URL } from '../lib/api'
 import type { ArtifactRef } from '../lib/stream'
 
@@ -19,13 +19,14 @@ interface Props {
   steps: LiveStep[]
   artifacts: ArtifactRef[]
   toolCount: number
+  onClose?: () => void
 }
 
 /**
  * The "Agent Computer" — a Manus-style live activity panel. Streams the agent's
  * tool calls as a terminal feed and surfaces generated artifacts in real time.
  */
-export default function AgentComputer({ running, status, steps, artifacts, toolCount }: Props) {
+export default function AgentComputer({ running, status, steps, artifacts, toolCount, onClose }: Props) {
   const feedRef = useRef<HTMLDivElement>(null)
   const toolSteps = steps.filter((s) => s.kind === 'tool' && s.tool)
 
@@ -50,6 +51,9 @@ export default function AgentComputer({ running, status, steps, artifacts, toolC
         <span className={`text-[10px] px-2 py-0.5 rounded-full border ${running ? 'border-neon-green/40 text-neon-green' : 'border-white/10 text-slate-500'}`}>
           {running ? 'LIVE' : 'READY'}
         </span>
+        {onClose && (
+          <button onClick={onClose} className="lg:hidden p-1 -mr-1 rounded-lg hover:bg-white/5 text-slate-400" title="Close"><X size={16} /></button>
+        )}
       </div>
 
       {/* Terminal feed */}
