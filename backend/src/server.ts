@@ -1,6 +1,18 @@
+import dotenv from 'dotenv'
+dotenv.config()
+
+// Initialize Sentry as early as possible (no-op without SENTRY_DSN).
+import * as Sentry from '@sentry/node'
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE) || 0.1,
+  })
+}
+
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import path from 'path'
 import conversationRoutes from './routes/conversations'
 import messageRoutes from './routes/messages'
@@ -13,8 +25,6 @@ import { validateEnv } from './middleware/envValidation'
 import { rateLimiter } from './middleware/rateLimiter'
 import { errorLogger } from './middleware/errorLogger'
 import { initAgent } from './agent'
-
-dotenv.config()
 
 // Validate environment variables on startup
 validateEnv()
@@ -88,6 +98,11 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
+
+// Report errors to Sentry (no-op without SENTRY_DSN), then log.
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app)
+}
 
 // Error handling middleware (must be last)
 app.use(errorLogger)

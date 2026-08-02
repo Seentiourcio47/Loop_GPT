@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, ArrowRight } from 'lucide-react'
 import { API_URL } from '../lib/api'
+import { track } from './Analytics'
 
 export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter()
@@ -33,6 +34,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         return
       }
       if (data.token && typeof window !== 'undefined') localStorage.setItem('token', data.token)
+      track(isSignup ? 'signed_up' : 'logged_in', { method: 'email' })
       router.push('/chat')
     } catch (err: any) {
       setError(err?.message || 'Network error')

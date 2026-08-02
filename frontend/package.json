@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@sentry/browser": "^8.47.0",
     "@tanstack/react-query": "^5.17.0",
     "axios": "^1.6.2",
     "clsx": "^2.1.0",
     "framer-motion": "^11.18.2",
+    "posthog-js": "^1.203.0",
     "lucide-react": "^0.303.0",
     "next": "14.0.4",
     "react": "^18.2.0",

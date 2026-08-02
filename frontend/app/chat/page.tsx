@@ -12,6 +12,7 @@ import { API_URL, authHeaders, getProviderSettings, type AgentMode } from '../li
 import { runAgentStream, type ArtifactRef } from '../lib/stream'
 import AgentComputer, { type LiveStep } from '../components/AgentComputer'
 import SettingsPanel from '../components/SettingsPanel'
+import { track } from '../components/Analytics'
 
 interface Message {
   id: string
@@ -105,6 +106,7 @@ export default function Home() {
     setRunning(true); setStatusMsg(''); setLiveSteps([]); setLiveArtifacts([])
     setLiveUser({ content, image: preview || undefined })
     if (!computerOpen) setComputerOpen(true)
+    track('message_sent', { mode })
 
     let convId: string | null = null
     try {
