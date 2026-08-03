@@ -377,6 +377,58 @@ router.get('/plugins', authenticateToken, (_req, res) => {
   res.json(pluginRegistry.list())
 })
 
+// ---- Loop Code: direct completions endpoint ---------------------------------
+// Accepts the same format as OpenAI's /chat/completions (messages + tools) and
+// streams back OpenAI-compatible SSE. Loop Code calls this to drive its local
+// agent loop — the model decides which tools to call, then Loop Code executes
+// them on the user's machine and sends results back in the next request.
+router.post('/completions', authenticateToken, async (req, res) => {
+  const { messages, tools, stream = true } = req.body || {}
+  const { provider, model, apiKey, baseUrl } = resolveProvider(req.body)
+
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array is required' })
+  }
+
+  const { createClient, resolveModel } = await import('../agent/llmClient.js')
+  const client = createClient(provider, apiKey, baseUrl)
+  const resolvedModel = resolveModel(provider, model)
+
+  if (!stream) {
+    // Non-streaming fallback
+    const response = await (client.chat.completions.create as any)({
+      model: resolvedModel,
+      messages,
+      tools: tools?.length ? tools : undefined,
+      tool_choice: tools?.length ? 'auto' : undefined,
+    })
+    return res.json(response)
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.flushHeaders?.()
+
+  try {
+    const streamRes = await (client.chat.completions.create as any)({
+      model: resolvedModel,
+      messages,
+      tools: tools?.length ? tools : undefined,
+      tool_choice: tools?.length ? 'auto' : undefined,
+      stream: true,
+    })
+
+    for await (const chunk of streamRes) {
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`)
+    }
+    res.write('data: [DONE]\n\n')
+  } catch (e: any) {
+    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`)
+  }
+  res.end()
+})
+
 router.post('/plugins/:id', authenticateToken, (req, res) => {
   const { enabled } = req.body || {}
   const set = new Set(configStore.getEnabledPlugins())
