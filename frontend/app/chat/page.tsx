@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Send, Plus, PanelLeft, Trash2, Edit2, Image as ImageIcon, Settings, Sparkles, X,
   MessageSquare, Bot, Search, Wrench, FileDown, Loader2, Cpu, ChevronRight, CreditCard, ShieldCheck,
-  Copy, Check, RotateCcw, Camera, Paperclip, Plug, ChevronDown, ClipboardCheck, Zap,
+  Copy, Check, RotateCcw, Camera, Paperclip, Plug, ChevronDown, ClipboardCheck, Zap, LogOut, User,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -59,6 +59,8 @@ export default function Home() {
   const [runMode, setRunMode] = useState<'auto' | 'plan' | 'accept'>('auto')
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState<string | undefined>(undefined)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
@@ -242,6 +244,13 @@ export default function Home() {
     onSuccess: (_d, id) => { queryClient.invalidateQueries({ queryKey: ['conversations'] }); if (currentConversationId === id) setCurrentConversationId(null) },
   })
 
+  const user = getStoredUser()
+  const logout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    window.location.href = '/login'
+  }
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) { setSelectedImage(file); const r = new FileReader(); r.onloadend = () => setImagePreview(r.result as string); r.readAsDataURL(file) }
@@ -271,14 +280,21 @@ export default function Home() {
               <span className="font-semibold text-slate-100 text-[15px]">Loop GPT</span>
               <button onClick={() => setSidebarOpen(false)} className="ml-auto p-1.5 rounded-lg hover:bg-white/5 text-slate-400"><PanelLeft size={16} /></button>
             </div>
-            <div className="px-3">
+            <div className="px-3 space-y-2">
               <button onClick={() => { selectConversation(null); closeOverlays() }}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-white bg-[#c96442] hover:bg-[#b5593a] transition">
                 <Plus size={17} strokeWidth={2.5} /> New session
               </button>
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input type="text" placeholder="Search chats…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-[13px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-white/15 transition" />
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 mt-1 space-y-0.5">
-              {conversations.map((c) => (
+              {conversations
+                .filter((c) => !searchQuery || (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((c) => (
                 <div key={c.id} className={`group rounded-lg transition ${currentConversationId === c.id ? 'bg-white/8 accent-ring' : 'hover:bg-white/5'}`}>
                   {editingConversationId === c.id ? (
                     <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} autoFocus
@@ -297,19 +313,39 @@ export default function Home() {
                   )}
                 </div>
               ))}
-            </div>
-            <div className="m-3 mt-0 space-y-1">
-              <button onClick={() => setShowSettings(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 border border-white/5">
-                <Settings size={15} /> Agent settings
-              </button>
-              <Link href="/account" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 border border-white/5">
-                <CreditCard size={15} /> Account & billing
-              </Link>
-              {getStoredUser()?.role === 'admin' && (
-                <Link href="/admin" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#c96442] hover:bg-white/5 border border-white/10">
-                  <ShieldCheck size={15} /> Admin portal
-                </Link>
+              {searchQuery && conversations.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                <p className="px-3 py-4 text-center text-[12px] text-slate-500">No chats match "{searchQuery}"</p>
               )}
+            </div>
+            {/* User menu — Claude-style avatar row with dropdown */}
+            <div className="border-t border-white/5 p-2">
+              <div className="relative">
+                <button onClick={() => setShowUserMenu((v) => !v)}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition">
+                  <div className="w-7 h-7 rounded-full bg-[#c96442] flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                    {(user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="text-[13px] text-slate-200 truncate">{user?.name || user?.email || 'Anonymous'}</div>
+                    {user?.plan && <div className="text-[11px] text-slate-500 capitalize">{user.plan} plan</div>}
+                  </div>
+                  <ChevronDown size={14} className={`text-slate-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.15 }}
+                      className="absolute bottom-full mb-1 left-0 right-0 glass rounded-xl border border-white/10 overflow-hidden shadow-panel z-10">
+                      <UserMenuItem icon={Settings} label="Settings" onClick={() => { setShowUserMenu(false); setShowSettings(true) }} />
+                      <UserMenuItem icon={CreditCard} label="Account & billing" href="/account" onClick={() => setShowUserMenu(false)} />
+                      {user?.role === 'admin' && (
+                        <UserMenuItem icon={ShieldCheck} label="Admin portal" href="/admin" onClick={() => setShowUserMenu(false)} accent />
+                      )}
+                      <div className="my-0.5 border-t border-white/5" />
+                      <UserMenuItem icon={LogOut} label="Sign out" onClick={logout} danger />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </motion.aside>
         )}
@@ -485,6 +521,14 @@ function PlusItem({ icon: Icon, label, onClick }: { icon: any; label: string; on
       <Icon size={16} className="text-slate-400 shrink-0" /> {label}
     </button>
   )
+}
+
+function UserMenuItem({ icon: Icon, label, href, onClick, accent, danger }: { icon: any; label: string; href?: string; onClick?: () => void; accent?: boolean; danger?: boolean }) {
+  const cls = `w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 text-left transition text-sm ${danger ? 'text-rose-400' : accent ? 'text-[#c96442]' : 'text-slate-200'}`
+  if (href) return (
+    <Link href={href} onClick={onClick} className={cls}><Icon size={15} className="shrink-0" /> {label}</Link>
+  )
+  return <button type="button" onClick={onClick} className={cls}><Icon size={15} className="shrink-0" /> {label}</button>
 }
 
 function ModeItem({ icon: Icon, label, hint, active, onClick }: { icon: any; label: string; hint: string; active?: boolean; onClick: () => void }) {

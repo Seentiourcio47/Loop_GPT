@@ -37,6 +37,7 @@ export interface StoredUser {
   email: string
   name: string
   role?: string
+  plan?: string
 }
 
 export function getStoredUser(): StoredUser | null {
