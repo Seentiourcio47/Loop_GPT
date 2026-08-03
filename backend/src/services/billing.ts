@@ -186,9 +186,23 @@ export interface RedeemResult {
 
 /** Redeem a voucher code for a user. Atomic against concurrent redemptions. */
 export async function redeemVoucher(userId: string, code: string): Promise<RedeemResult> {
-  if (!hasDb || !prisma) return { ok: false, error: 'Vouchers require a database.' }
   const clean = String(code || '').trim().toUpperCase()
   if (!clean) return { ok: false, error: 'Voucher code is required.' }
+
+  // Env-var team invite code: set ADMIN_INVITE_CODE in your deployment to give
+  // any team member unlimited access without a per-code database voucher.
+  const teamCode = process.env.ADMIN_INVITE_CODE?.trim().toUpperCase()
+  if (teamCode && clean === teamCode) {
+    if (hasDb && prisma) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { unlimited: true, plan: 'pro', credits: 999999, imageCredits: 999999 },
+      })
+    }
+    return { ok: true, applied: { type: 'unlimited', unlimited: true, plan: 'pro' } }
+  }
+
+  if (!hasDb || !prisma) return { ok: false, error: 'Vouchers require a database.' }
 
   const voucher = await prisma.voucher.findUnique({ where: { code: clean } })
   if (!voucher || !voucher.active) return { ok: false, error: 'Invalid or inactive voucher.' }
