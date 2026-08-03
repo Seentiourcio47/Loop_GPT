@@ -314,7 +314,7 @@ export default function Home() {
                 </div>
               ))}
               {searchQuery && conversations.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                <p className="px-3 py-4 text-center text-[12px] text-slate-500">No chats match "{searchQuery}"</p>
+                <p className="px-3 py-4 text-center text-[12px] text-slate-500">{`No chats match "${searchQuery}"`}</p>
               )}
             </div>
             {/* User menu — Claude-style avatar row with dropdown */}
