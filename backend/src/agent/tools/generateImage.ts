@@ -2,7 +2,7 @@
  * generate_image tool: text-to-image generation.
  *
  * Primary path uses Hugging Face Inference Providers text-to-image with the
- * HF token (model from HF_IMAGE_MODEL, default FLUX.1-schnell). If an external
+ * HF token (model from HF_IMAGE_MODEL, default FLUX.1-dev). If an external
  * IMAGE_API_URL service is configured, it is used as a fallback.
  */
 import { saveArtifact } from '../artifacts'
@@ -57,17 +57,29 @@ async function hfImageEndpoint(prompt: string): Promise<Buffer> {
   }
 }
 
-async function hfTextToImage(prompt: string, model: string): Promise<Buffer> {
+function inferenceParams(model: string, width = 1024, height = 1024) {
+  const isSchnell = model.toLowerCase().includes('schnell')
+  return {
+    num_inference_steps: isSchnell ? 4 : 28,
+    guidance_scale: isSchnell ? 0 : 3.5,
+    width,
+    height,
+  }
+}
+
+async function hfTextToImage(prompt: string, model: string, width = 1024, height = 1024): Promise<Buffer> {
   const configured = process.env.HF_IMAGE_PROVIDER
-  const providers = configured ? [configured] : ['nscale', 'together', 'fal-ai']
+  // fal-ai and together have strong FLUX.1-dev support; nscale as fallback
+  const providers = configured ? [configured] : ['fal-ai', 'together', 'nscale']
   const auth = { Authorization: `Bearer ${process.env.HF_TOKEN || ''}` }
+  const params = inferenceParams(model, width, height)
   let lastErr = ''
 
   for (const provider of providers) {
     try {
       const data = await postJson<any>(
         `https://router.huggingface.co/${provider}/v1/images/generations`,
-        { model, prompt, response_format: 'b64_json' },
+        { model, prompt, response_format: 'b64_json', ...params },
         { headers: auth, timeoutMs: 120000 }
       )
       const item = data?.data?.[0] || data?.images?.[0]
@@ -84,11 +96,16 @@ async function hfTextToImage(prompt: string, model: string): Promise<Buffer> {
 export const generateImageTool: ToolDefinition = {
   name: 'generate_image',
   source: 'builtin',
-  description: 'Generate an image from a text prompt. Returns an image artifact the user can view and download.',
+  description: 'Generate a high-quality image from a text prompt using FLUX.1-dev. Returns an image artifact the user can view and download.',
   parameters: {
     type: 'object',
     properties: {
-      prompt: { type: 'string', description: 'A detailed description of the image to generate.' },
+      prompt: { type: 'string', description: 'A detailed, vivid description of the image to generate. More detail = better results.' },
+      aspect_ratio: {
+        type: 'string',
+        enum: ['square', 'landscape', 'portrait', 'wide'],
+        description: 'Image aspect ratio. square=1024x1024, landscape=1344x768, portrait=768x1344, wide=1536x640. Defaults to square.',
+      },
     },
     required: ['prompt'],
   },
@@ -108,7 +125,15 @@ export const generateImageTool: ToolDefinition = {
       }
     }
 
-    const model = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell'
+    const model = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-dev'
+    const ratio = String(args.aspect_ratio || 'square')
+    const SIZES: Record<string, [number, number]> = {
+      square: [1024, 1024],
+      landscape: [1344, 768],
+      portrait: [768, 1344],
+      wide: [1536, 640],
+    }
+    const [imgW, imgH] = SIZES[ratio] || SIZES.square
 
     let buffer: Buffer | null = null
     let usedModel = model
@@ -121,10 +146,10 @@ export const generateImageTool: ToolDefinition = {
         ctx.emit({ type: 'status', message: `Image endpoint failed (${error?.message || error}); trying providers…` })
       }
     }
-    // 2) Serverless HF Inference Providers (FLUX via router).
+    // 2) Serverless HF Inference Providers (FLUX.1-dev via router).
     try {
       if (!buffer && process.env.HF_TOKEN) {
-        buffer = await hfTextToImage(prompt, model)
+        buffer = await hfTextToImage(prompt, model, imgW, imgH)
       }
     } catch (error: any) {
       ctx.emit({ type: 'status', message: `HF image gen failed (${error?.message || error}); trying fallback…` })
@@ -133,7 +158,7 @@ export const generateImageTool: ToolDefinition = {
     // Fallback to the external image service if configured.
     if (!buffer && process.env.IMAGE_API_URL) {
       try {
-        const result = await imageApiService.generateImage({ prompt, model: 'flux-schnell', return_base64: true })
+        const result = await imageApiService.generateImage({ prompt, model: 'flux-dev', return_base64: true })
         if (result.image_base64) {
           buffer = Buffer.from(result.image_base64, 'base64')
           usedModel = result.model
