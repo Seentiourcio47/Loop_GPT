@@ -109,9 +109,16 @@ export async function streamTurn(opts: StreamTurnOptions): Promise<StreamTurnRes
     temperature: opts.temperature ?? agentConfig.temperature,
     max_tokens: opts.maxTokens ?? agentConfig.maxTokens,
     stream: true,
+  } as any
+
+  // Qwen 3 thinking mode: set QWEN_THINKING=true to enable chain-of-thought
+  // (slower but better for hard reasoning). Default: disabled (faster).
+  if (process.env.QWEN_THINKING !== 'true') {
+    ;(params as any).enable_thinking = false
   }
+
   if (tools && tools.length > 0) {
-    params.tools = tools
+    params.tools = tools as any
     params.tool_choice = 'auto'
   }
 
