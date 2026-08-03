@@ -59,7 +59,7 @@ export default function Landing() {
             Deep research, vision, image &amp; document generation, MCP connectors, skills, and a live Agent Computer — all streamed in real time. Bring your own model.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Link href="/chat" className="group inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow font-medium">
+            <Link href="/signup" className="group inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow font-medium">
               Try it free <ArrowRight size={18} className="group-hover:translate-x-0.5 transition" />
             </Link>
             <a href="#pricing" className="px-5 py-3 rounded-xl glass hover:accent-ring transition text-slate-200 font-medium">See pricing</a>
@@ -114,14 +114,14 @@ export default function Landing() {
           <Wrench size={28} className="text-neon-violet mx-auto mb-4" />
           <h2 className="text-3xl font-semibold mb-3">Put an agent to work in seconds.</h2>
           <p className="text-slate-400 mb-6">No setup. Ask a question, run deep research, or generate a document.</p>
-          <Link href="/chat" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow font-medium">Open Loop GPT <ArrowRight size={18} /></Link>
+          <Link href="/signup" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow font-medium">Get started free <ArrowRight size={18} /></Link>
         </div>
       </section>
 
       <footer className="max-w-6xl mx-auto px-5 py-10 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
         <div className="flex items-center gap-2"><Sparkles size={14} className="text-neon-violet" /> Loop GPT</div>
         <div className="flex items-center gap-4">
-          <Link href="/chat" className="hover:text-slate-300">App</Link>
+          <Link href="/signup" className="hover:text-slate-300">Get started</Link>
           <a href="#pricing" className="hover:text-slate-300">Pricing</a>
           <Link href="/login" className="hover:text-slate-300">Log in</Link>
         </div>

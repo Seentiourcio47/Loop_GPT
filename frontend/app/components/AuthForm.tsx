@@ -35,17 +35,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [providers, setProviders] = useState<string[]>([])
 
   const isSignup = mode === 'signup'
-
-  // Discover which social providers are configured on the backend.
-  useEffect(() => {
-    fetch(`${API_URL}/api/auth/providers`)
-      .then((r) => r.json())
-      .then((d) => setProviders(Array.isArray(d.providers) ? d.providers : []))
-      .catch(() => setProviders([]))
-  }, [])
 
   // Handle the OAuth redirect back: ?token=...&role=...&error=...
   useEffect(() => {
@@ -54,7 +45,13 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     const token = p.get('token')
     const err = p.get('error')
     if (err) {
-      setError(err === 'db_required' ? 'Sign-in needs the database enabled.' : `Sign-in failed: ${err}`)
+      setError(
+        err === 'db_required'
+          ? 'Sign-in needs the database enabled.'
+          : err === 'provider_unavailable'
+          ? 'Social sign-in is not yet configured on this server. Please use email/password below.'
+          : `Sign-in failed: ${err}`
+      )
       window.history.replaceState({}, '', window.location.pathname)
       return
     }
@@ -108,30 +105,18 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
           {/* Social sign-in */}
           <div className="space-y-2 mb-4">
-            {(['google', 'apple', 'github'] as const).map((p) => {
-              const live = providers.includes(p)
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => live && social(p)}
-                  disabled={!live}
-                  title={live ? `Continue with ${PROVIDER_META[p].label}` : `${PROVIDER_META[p].label} sign-in not configured yet`}
-                  className={`w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg text-sm font-medium border transition ${
-                    live
-                      ? 'bg-ink-800 border-white/10 text-slate-100 hover:bg-ink-700'
-                      : 'bg-ink-900 border-white/5 text-slate-600 cursor-not-allowed'
-                  }`}
-                >
-                  {PROVIDER_META[p].icon}
-                  Continue with {PROVIDER_META[p].label}
-                </button>
-              )
-            })}
+            {(['google', 'apple', 'github'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => social(p)}
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg text-sm font-medium border transition bg-ink-800 border-white/10 text-slate-100 hover:bg-ink-700"
+              >
+                {PROVIDER_META[p].icon}
+                Continue with {PROVIDER_META[p].label}
+              </button>
+            ))}
           </div>
-          {!providers.length && (
-            <p className="text-[11px] text-slate-600 text-center mb-3 -mt-1">Social sign-in isn&apos;t configured on this server yet — use email below.</p>
-          )}
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px flex-1 bg-white/5" />
             <span className="text-[11px] text-slate-600 uppercase tracking-wider">or email</span>
@@ -154,9 +139,6 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           </form>
           <div className="mt-4 text-center text-sm text-slate-500">
             {isSignup ? <>Already have an account? <Link href="/login" className="text-neon-violet hover:underline">Log in</Link></> : <>New here? <Link href="/signup" className="text-neon-violet hover:underline">Sign up</Link></>}
-          </div>
-          <div className="mt-3 pt-3 border-t border-white/5 text-center">
-            <Link href="/chat" className="text-xs text-slate-500 hover:text-slate-300">Continue as guest →</Link>
           </div>
         </div>
       </div>
