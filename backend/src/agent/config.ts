@@ -24,8 +24,8 @@ export const agentConfig = {
   temperature: Number(process.env.AGENT_TEMPERATURE ?? 0.7),
   /** Deep research breadth. */
   research: {
-    maxQueries: num('RESEARCH_MAX_QUERIES', 6),
-    maxSources: num('RESEARCH_MAX_SOURCES', 10),
+    maxQueries: num('RESEARCH_MAX_QUERIES', 7),
+    maxSources: num('RESEARCH_MAX_SOURCES', 15),
     perSourceChars: num('RESEARCH_PER_SOURCE_CHARS', 6000),
   },
   /** Request timeout (ms) — generous for large generations / cold starts. */
