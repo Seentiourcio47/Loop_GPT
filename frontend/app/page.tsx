@@ -165,16 +165,24 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="max-w-6xl mx-auto px-5 py-10 border-t border-white/[0.05] flex flex-col sm:flex-row items-center justify-between gap-3 text-[13px] text-slate-500">
-        <div className="flex items-center gap-2">
-          <Sparkles size={14} className="text-[#c96442]" /> Loop GPT
+      <footer className="max-w-6xl mx-auto px-5 py-10 border-t border-white/[0.05] text-[13px] text-slate-500">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-[#c96442]" /> Loop GPT
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/signup" className="hover:text-slate-300 transition">Get started</Link>
+            <a href="#pricing" className="hover:text-slate-300 transition">Pricing</a>
+            <Link href="/login" className="hover:text-slate-300 transition">Log in</Link>
+          </div>
+          <span className="text-slate-600">© {new Date().getFullYear()} Loop GPT</span>
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/signup" className="hover:text-slate-300 transition">Get started</Link>
-          <a href="#pricing" className="hover:text-slate-300 transition">Pricing</a>
-          <Link href="/login" className="hover:text-slate-300 transition">Log in</Link>
+        <div className="flex items-center justify-center gap-5 pt-4 border-t border-white/[0.04]">
+          <Link href="/privacy" className="hover:text-slate-300 transition">Privacy</Link>
+          <Link href="/terms" className="hover:text-slate-300 transition">Terms</Link>
+          <Link href="/cookies" className="hover:text-slate-300 transition">Cookies</Link>
+          <Link href="/acceptable-use" className="hover:text-slate-300 transition">Acceptable Use</Link>
         </div>
-        <span className="text-slate-600">© Loop GPT</span>
       </footer>
     </div>
   )
