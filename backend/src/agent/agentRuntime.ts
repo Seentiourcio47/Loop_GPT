@@ -160,10 +160,18 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   const client = createClient(provider, apiKey, baseUrl)
   const cfgKey = `${provider}:${baseUrl || process.env.HF_ENDPOINT_URL || ''}`
 
-  // Assemble the working message list with system prompt + tool guide. The
-  // confidentiality rules go first so they take precedence.
+  // Assemble the working message list with system prompt + tool guide.
+  // Order: system prompt first (highest weight for most models), then
+  // confidentiality rules, then tool guide. An UNRESTRICTED_PREAMBLE can be
+  // injected via env to help uncensored models stay on-task.
+  const preamble = process.env.UNRESTRICTED_PREAMBLE || ''
   const working: ChatMessage[] = []
-  const sys = [guardrailsEnabled ? CONFIDENTIALITY_PROMPT : '', systemPrompt, hasTools ? buildToolGuide(tools) : '']
+  const sys = [
+    preamble,
+    systemPrompt,
+    guardrailsEnabled ? CONFIDENTIALITY_PROMPT : '',
+    hasTools ? buildToolGuide(tools) : '',
+  ]
     .filter(Boolean)
     .join('\n\n')
   if (sys) working.push({ role: 'system', content: sys })
