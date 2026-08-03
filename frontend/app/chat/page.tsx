@@ -259,6 +259,22 @@ export default function Home() {
   const liveAnswer = liveSteps.filter((s) => s.kind === 'text').map((s) => s.text).join('')
   const showEmpty = messages.length === 0 && !liveUser
 
+  function exportConversation() {
+    const title = conversations.find((c) => c.id === currentConversationId)?.title || 'conversation'
+    const md = messages.map((m) => `**${m.role === 'user' ? 'You' : 'Loop GPT'}**\n\n${m.content}`).join('\n\n---\n\n')
+    const blob = new Blob([`# ${title}\n\n${md}`], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `${title.replace(/[^a-z0-9]/gi, '-')}.md`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function retryLastUserMessage(beforeIndex: number) {
+    const userMsgs = messages.slice(0, beforeIndex).filter((m) => m.role === 'user')
+    const last = userMsgs[userMsgs.length - 1]
+    if (last?.content) { setInput(last.content) }
+  }
+
   return (
     <div className="flex h-[100dvh] overflow-hidden text-slate-200">
       {/* Mobile backdrop for the overlay panels */}
@@ -357,6 +373,9 @@ export default function Home() {
           {!sidebarOpen && <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400"><PanelLeft size={17} /></button>}
           <span className="text-sm font-medium text-slate-300 truncate">{conversations.find((c) => c.id === currentConversationId)?.title || 'New session'}</span>
           <div className="ml-auto flex items-center gap-1">
+            {messages.length > 0 && (
+              <button onClick={exportConversation} title="Export conversation" className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-slate-200 transition"><FileDown size={16} /></button>
+            )}
             <button onClick={() => (computerOpen ? setComputerOpen(false) : openComputer())} title="Toggle Agent Computer"
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition ${computerOpen ? 'border-white/15 text-slate-200 bg-white/10' : 'border-white/10 text-slate-400 hover:bg-white/5'}`}>
               <Cpu size={14} /> <span className="hidden sm:inline">Computer</span>
@@ -375,7 +394,15 @@ export default function Home() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-5">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} fmtTime={fmtTime} />)}
+              {messages.map((m, idx) => (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  fmtTime={fmtTime}
+                  onEdit={m.role === 'user' ? (content) => setInput(content) : undefined}
+                  onRetry={m.role === 'assistant' ? () => retryLastUserMessage(idx) : undefined}
+                />
+              ))}
 
               {liveUser && (
                 <>
@@ -541,21 +568,32 @@ function ModeItem({ icon: Icon, label, hint, active, onClick }: { icon: any; lab
   )
 }
 
-function MessageBubble({ message, fmtTime }: { message: Message; fmtTime: (s: string) => string }) {
+function MessageBubble({ message, fmtTime, onEdit, onRetry }: {
+  message: Message
+  fmtTime: (s: string) => string
+  onEdit?: (content: string) => void
+  onRetry?: () => void
+}) {
   const artifacts: ArtifactRef[] = message.metadata?.artifacts || []
   const sources = message.metadata?.sources as { index: number; title: string; url: string }[] | undefined
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
   const copy = () => { navigator.clipboard?.writeText(message.content || '').then(() => { setCopied(true); setTimeout(() => setCopied(false), 1400) }) }
 
-  // User: compact right-aligned bubble. Assistant: full-width, no card, markdown.
+  // User: compact right-aligned bubble with edit action.
   if (isUser) {
     return (
-      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="flex justify-end">
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="group flex flex-col items-end gap-1">
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.06] border border-white/5 px-4 py-2.5">
           {message.imagePath && <img src={message.imageUrl || `${API_URL}/uploads/${message.imagePath.split('/').pop()}`} alt="Uploaded" className="max-w-[280px] max-h-64 rounded-lg border border-white/10 mb-2" />}
           {message.content && <div className="whitespace-pre-wrap text-slate-100 text-[15px] leading-relaxed">{message.content}</div>}
         </div>
+        {onEdit && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition pr-1">
+            <button onClick={() => onEdit(message.content)} title="Edit" className="p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-white/5"><Edit2 size={13} /></button>
+            <button onClick={copy} title="Copy" className="p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-white/5">{copied ? <Check size={13} /> : <Copy size={13} />}</button>
+          </div>
+        )}
       </motion.div>
     )
   }
@@ -573,6 +611,7 @@ function MessageBubble({ message, fmtTime }: { message: Message; fmtTime: (s: st
       {/* Hover action row (Claude-style) */}
       <div className="mt-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
         <button onClick={copy} title="Copy" className="p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-white/5">{copied ? <Check size={14} /> : <Copy size={14} />}</button>
+        {onRetry && <button onClick={onRetry} title="Retry" className="p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-white/5"><RotateCcw size={14} /></button>}
       </div>
     </motion.div>
   )

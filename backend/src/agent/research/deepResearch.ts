@@ -390,6 +390,22 @@ export async function runDeepResearch(opts: DeepResearchOptions): Promise<DeepRe
   }
 
   // ── Phase 3: Fetch sources ──────────────────────────────────────────────────
+  if (hits.length === 0) {
+    const msg =
+      '## Deep Research — No Sources Found\n\n' +
+      'Web search returned 0 results for this query. This can happen when:\n\n' +
+      '- The web search service is temporarily unavailable\n' +
+      '- The query contains terms that are being filtered\n' +
+      '- Network connectivity to search providers is limited in this environment\n\n' +
+      '**What you can do:**\n' +
+      '- Try rephrasing your query and running `/research` again\n' +
+      '- Use the regular agent mode (no `/research` prefix) — it can search the web too\n' +
+      '- Ask the administrator to configure a `TAVILY_API_KEY` for reliable web search\n'
+    ctx.emit({ type: 'delta', step, text: msg })
+    ctx.emit({ type: 'final', content: msg, metadata: sanitizeMetadata({ mode: 'research', sources: [] }) })
+    return { content: msg, sources: [] }
+  }
+
   ctx.emit({ type: 'warming', message: `Reading top ${Math.min(hits.length, maxSources)} sources…` })
   const sources = await fetchPhase(hits, maxSources, perSourceChars, step, ctx)
   step += sources.length
