@@ -13,7 +13,7 @@ const FEATURES = [
   { icon: Eye, title: 'Vision', desc: 'Upload an image and ask about it — native multimodal understanding.' },
   { icon: ImageIcon, title: 'Image generation', desc: 'Generate images from a prompt with FLUX, right in the chat.' },
   { icon: FileText, title: 'Documents', desc: 'Produce PDF, Word, Excel, and PowerPoint files as downloadable outputs.' },
-  { icon: Cpu, title: 'Agent Computer', desc: 'Watch every tool call stream in a live terminal, Manus-style.' },
+  { icon: Cpu, title: 'Agent Computer', desc: 'Watch every tool call stream in a live terminal.' },
   { icon: Cable, title: 'MCP & connectors', desc: 'Plug in Model Context Protocol servers and external services.' },
   { icon: Blocks, title: 'Skills & builders', desc: 'Create skills and no-code tools that extend the agent.' },
 ]
@@ -35,51 +35,66 @@ export default function Landing() {
       {/* Nav */}
       <nav className="max-w-6xl mx-auto flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-violet to-neon-cyan flex items-center justify-center shadow-glow"><Sparkles size={15} className="text-white" /></div>
-          <span className="font-semibold text-gradient text-[15px]">Loop GPT</span>
+          <div className="w-7 h-7 rounded-lg bg-[#c96442] flex items-center justify-center">
+            <Sparkles size={14} className="text-white" />
+          </div>
+          <span className="font-semibold text-slate-100 text-[15px]">Loop GPT</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <a href="#features" className="text-slate-400 hover:text-slate-100 hidden sm:block">Features</a>
-          <a href="#pricing" className="text-slate-400 hover:text-slate-100 hidden sm:block">Pricing</a>
-          <Link href="/login" className="text-slate-300 hover:text-white">Log in</Link>
-          <Link href="/signup" className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow">Sign up</Link>
+          <a href="#features" className="text-slate-500 hover:text-slate-200 hidden sm:block transition">Features</a>
+          <a href="#pricing" className="text-slate-500 hover:text-slate-200 hidden sm:block transition">Pricing</a>
+          <Link href="/login" className="text-slate-400 hover:text-slate-100 transition">Log in</Link>
+          <Link href="/signup" className="px-3 py-1.5 rounded-lg text-white bg-[#c96442] hover:bg-[#b5593a] transition text-[13px] font-medium">
+            Sign up
+          </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="max-w-4xl mx-auto text-center px-5 pt-16 pb-14">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-slate-300 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulseGlow" /> Agentic AI · streaming · your own model
+      <section className="max-w-4xl mx-auto text-center px-5 pt-20 pb-16">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-[12px] text-slate-400 mb-7">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+            Agentic AI · streaming · bring your own model
           </div>
-          <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight leading-[1.05] mb-5">
+          <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight leading-[1.06] mb-5 text-slate-50">
             The <span className="text-gradient">agentic</span> chat portal<br />that actually does the work.
           </h1>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-8">
-            Deep research, vision, image &amp; document generation, MCP connectors, skills, and a live Agent Computer — all streamed in real time. Bring your own model.
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-9 leading-relaxed">
+            Deep research, vision, image &amp; document generation, MCP connectors, skills, and a live Agent Computer — all streamed in real time.
           </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link href="/signup" className="group inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow font-medium">
-              Try it free <ArrowRight size={18} className="group-hover:translate-x-0.5 transition" />
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link href="/signup" className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white bg-[#c96442] hover:bg-[#b5593a] active:bg-[#a34e34] transition font-medium shadow-[0_2px_16px_rgba(201,100,66,0.28)]">
+              Try it free <ArrowRight size={17} className="group-hover:translate-x-0.5 transition" />
             </Link>
-            <a href="#pricing" className="px-5 py-3 rounded-xl glass hover:accent-ring transition text-slate-200 font-medium">See pricing</a>
+            <a href="#pricing" className="px-6 py-3 rounded-xl glass hover:border-white/15 hover:bg-white/[0.06] transition text-slate-300 font-medium">
+              See pricing
+            </a>
           </div>
         </motion.div>
       </section>
 
       {/* Features */}
-      <section id="features" className="max-w-6xl mx-auto px-5 py-12">
-        <h2 className="text-3xl font-semibold text-center mb-2">Everything a flagship assistant has</h2>
+      <section id="features" className="max-w-6xl mx-auto px-5 py-14">
+        <h2 className="text-3xl font-semibold text-center mb-2 text-slate-100">Everything a flagship assistant has</h2>
         <p className="text-slate-500 text-center mb-10">And the transparency of watching it work.</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {FEATURES.map((f, i) => {
             const Icon = f.icon
             return (
-              <motion.div key={f.title} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.04 }}
-                className="glass rounded-2xl p-5 hover:accent-ring transition">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-violet/30 to-neon-cyan/20 flex items-center justify-center mb-3"><Icon size={18} className="text-neon-violet" /></div>
-                <div className="font-medium text-slate-100 mb-1">{f.title}</div>
-                <div className="text-sm text-slate-500">{f.desc}</div>
+              <motion.div
+                key={f.title}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.04 }}
+                className="glass rounded-2xl p-5 hover:border-white/12 hover:bg-white/[0.06] transition cursor-default"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#c96442]/12 border border-[#c96442]/20 flex items-center justify-center mb-3">
+                  <Icon size={17} className="text-[#c96442]" />
+                </div>
+                <div className="font-medium text-slate-100 text-[14px] mb-1">{f.title}</div>
+                <div className="text-[13px] text-slate-500 leading-relaxed">{f.desc}</div>
               </motion.div>
             )
           })}
@@ -88,42 +103,76 @@ export default function Landing() {
 
       {/* Pricing */}
       <section id="pricing" className="max-w-4xl mx-auto px-5 py-16">
-        <h2 className="text-3xl font-semibold text-center mb-2">Simple pricing</h2>
+        <h2 className="text-3xl font-semibold text-center mb-2 text-slate-100">Simple pricing</h2>
         <p className="text-slate-500 text-center mb-10">Start free. Upgrade when you need more.</p>
         <div className="grid sm:grid-cols-2 gap-5">
           {PLANS.map((p) => (
-            <div key={p.name} className={`rounded-2xl p-6 ${p.highlight ? 'glass-strong accent-ring' : 'glass'}`}>
+            <div
+              key={p.name}
+              className={`rounded-2xl p-6 ${p.highlight ? 'glass-strong accent-ring' : 'glass'}`}
+            >
               <div className="flex items-center justify-between mb-3">
                 <span className="font-semibold text-lg text-slate-100">{p.name}</span>
-                {p.highlight && <span className="text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-r from-neon-violet to-neon-indigo text-white">Popular</span>}
+                {p.highlight && (
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#c96442]/15 text-[#c96442] border border-[#c96442]/25 font-medium">
+                    Popular
+                  </span>
+                )}
               </div>
-              <div className="mb-5"><span className="text-4xl font-semibold text-white">{p.price}</span><span className="text-slate-500">{p.period}</span></div>
+              <div className="mb-5">
+                <span className="text-4xl font-semibold text-white">{p.price}</span>
+                <span className="text-slate-500 ml-1">{p.period}</span>
+              </div>
               <ul className="space-y-2 mb-6">
-                {p.features.map((f) => <li key={f} className="flex items-start gap-2 text-sm text-slate-300"><Check size={16} className="text-neon-green mt-0.5 shrink-0" />{f}</li>)}
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-[13px] text-slate-300">
+                    <Check size={15} className="text-emerald-400/80 mt-0.5 shrink-0" />{f}
+                  </li>
+                ))}
               </ul>
-              <Link href={p.href} className={`block text-center py-2.5 rounded-xl font-medium transition ${p.highlight ? 'text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 shadow-glow' : 'glass hover:accent-ring text-slate-200'}`}>{p.cta}</Link>
+              <Link
+                href={p.href}
+                className={`block text-center py-2.5 rounded-xl text-[14px] font-medium transition ${
+                  p.highlight
+                    ? 'text-white bg-[#c96442] hover:bg-[#b5593a] shadow-[0_2px_12px_rgba(201,100,66,0.22)]'
+                    : 'glass hover:border-white/15 hover:bg-white/[0.06] text-slate-200'
+                }`}
+              >
+                {p.cta}
+              </Link>
             </div>
           ))}
         </div>
-        <p className="text-center text-xs text-slate-600 mt-6">AI usage is metered with credits so the free tier stays sustainable. Cancel anytime.</p>
+        <p className="text-center text-[12px] text-slate-600 mt-6">
+          AI usage is metered with credits so the free tier stays sustainable. Cancel anytime.
+        </p>
       </section>
 
       {/* CTA */}
       <section className="max-w-4xl mx-auto px-5 py-16 text-center">
         <div className="glass-strong rounded-3xl p-10">
-          <Wrench size={28} className="text-neon-violet mx-auto mb-4" />
-          <h2 className="text-3xl font-semibold mb-3">Put an agent to work in seconds.</h2>
-          <p className="text-slate-400 mb-6">No setup. Ask a question, run deep research, or generate a document.</p>
-          <Link href="/signup" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white bg-gradient-to-r from-neon-violet to-neon-indigo hover:opacity-90 transition shadow-glow font-medium">Get started free <ArrowRight size={18} /></Link>
+          <div className="w-12 h-12 rounded-2xl bg-[#c96442]/12 border border-[#c96442]/20 flex items-center justify-center mx-auto mb-5">
+            <Wrench size={22} className="text-[#c96442]" />
+          </div>
+          <h2 className="text-3xl font-semibold mb-3 text-slate-100">Put an agent to work in seconds.</h2>
+          <p className="text-slate-400 mb-7">No setup. Ask a question, run deep research, or generate a document.</p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white bg-[#c96442] hover:bg-[#b5593a] transition font-medium shadow-[0_2px_16px_rgba(201,100,66,0.28)]"
+          >
+            Get started free <ArrowRight size={17} />
+          </Link>
         </div>
       </section>
 
-      <footer className="max-w-6xl mx-auto px-5 py-10 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
-        <div className="flex items-center gap-2"><Sparkles size={14} className="text-neon-violet" /> Loop GPT</div>
+      <footer className="max-w-6xl mx-auto px-5 py-10 border-t border-white/[0.05] flex flex-col sm:flex-row items-center justify-between gap-3 text-[13px] text-slate-500">
+        <div className="flex items-center gap-2">
+          <Sparkles size={14} className="text-[#c96442]" /> Loop GPT
+        </div>
         <div className="flex items-center gap-4">
-          <Link href="/signup" className="hover:text-slate-300">Get started</Link>
-          <a href="#pricing" className="hover:text-slate-300">Pricing</a>
-          <Link href="/login" className="hover:text-slate-300">Log in</Link>
+          <Link href="/signup" className="hover:text-slate-300 transition">Get started</Link>
+          <a href="#pricing" className="hover:text-slate-300 transition">Pricing</a>
+          <Link href="/login" className="hover:text-slate-300 transition">Log in</Link>
         </div>
         <span className="text-slate-600">© Loop GPT</span>
       </footer>
