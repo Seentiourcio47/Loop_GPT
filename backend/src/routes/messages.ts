@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import OpenAI from 'openai'
 import { authenticateToken } from './auth'
 import { imageApiService } from '../services/imageApi'
+import { videoApiService } from '../services/videoApi'
 import { ToolDetector } from '../services/toolDetector'
 import { memoryStore } from '../services/memoryStore'
 import { aiProviderService, AIProvider } from '../services/aiProviders'
@@ -316,6 +317,31 @@ router.post('/:conversationId/messages', authenticateToken, validate(validationS
           metadata: {
             model: imageResult.model,
             generationTime: imageResult.generation_time,
+          },
+        }
+        break
+      }
+
+      case 'generate-video':
+      case 'generate-video-long': {
+        const prompt = ToolDetector.extractPrompt(content)
+        const duration = toolType === 'generate-video-long' ? 'long' : 'short'
+
+        const videoResult = await videoApiService.generateVideo({
+          prompt,
+          duration,
+        })
+
+        assistantResponse = {
+          role: 'assistant',
+          content: `Here's your generated video using ${videoResult.model} (${videoResult.duration_seconds?.toFixed(1)}s, ${videoResult.frames} frames):`,
+          messageType: 'video',
+          videoUrl: videoResult.video_base64 ? `data:video/mp4;base64,${videoResult.video_base64}` : null,
+          toolUsed: toolType,
+          metadata: {
+            model: videoResult.model,
+            frames: videoResult.frames,
+            duration: videoResult.duration_seconds,
           },
         }
         break

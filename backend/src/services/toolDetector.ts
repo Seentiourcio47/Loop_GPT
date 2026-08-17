@@ -3,12 +3,14 @@
  */
 
 export type ToolType = 
-  | 'chat'           // Regular chat with GPT
-  | 'generate-image' // Text-to-image generation
-  | 'analyze-image'  // Image analysis
-  | 'vision-chat'    // Vision Q&A
-  | 'mcp'            // Model Context Protocol
-  | 'gpt-creation'   // GPT creations/tools
+  | 'chat'              // Regular chat with GPT
+  | 'generate-image'    // Text-to-image generation
+  | 'generate-video'    // Text-to-video generation (short, ~5s)
+  | 'generate-video-long' // Text-to-video generation (long, up to 12s+)
+  | 'analyze-image'     // Image analysis
+  | 'vision-chat'       // Vision Q&A
+  | 'mcp'               // Model Context Protocol
+  | 'gpt-creation'      // GPT creations/tools
 
 interface ToolDetection {
   tool: ToolType
@@ -57,6 +59,45 @@ export class ToolDetector {
       '/generate',
       '/draw',
     ]
+
+    // Video generation commands (long video)
+    const longVideoKeywords = [
+      'generate long video',
+      'create long video',
+      'make a long video',
+      'long video of',
+      '/video-long',
+      '/long-video',
+    ]
+
+    // Video generation commands (short video)
+    const videoKeywords = [
+      'generate video',
+      'create video',
+      'make a video',
+      'video of',
+      'animate',
+      'animation of',
+      '/video',
+      '/animate',
+    ]
+
+    // Check long video first (more specific)
+    if (longVideoKeywords.some(keyword => lowerInput.includes(keyword))) {
+      return {
+        tool: 'generate-video-long',
+        confidence: 0.95,
+        parameters: {},
+      }
+    }
+
+    if (videoKeywords.some(keyword => lowerInput.includes(keyword))) {
+      return {
+        tool: 'generate-video',
+        confidence: 0.95,
+        parameters: {},
+      }
+    }
 
     if (imageKeywords.some(keyword => lowerInput.includes(keyword))) {
       let model: string = 'flux-schnell'

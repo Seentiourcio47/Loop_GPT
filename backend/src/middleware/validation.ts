@@ -82,7 +82,7 @@ export const validationSchemas = {
     body: z.object({
       content: z.string().optional(),
       imagePath: z.string().optional(),
-      tool: z.enum(['chat', 'generate-image', 'analyze-image', 'vision-chat', 'mcp', 'gpt-creation']).optional(),
+      tool: z.enum(['chat', 'generate-image', 'generate-video', 'generate-video-long', 'analyze-image', 'vision-chat', 'mcp', 'gpt-creation']).optional(),
       provider: z.string().optional(),
       model: z.string().optional(),
       apiKey: z.string().optional(),

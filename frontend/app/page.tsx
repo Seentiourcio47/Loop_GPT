@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import { Send, Plus, Menu, X, Trash2, Edit2, Image as ImageIcon, Settings, Sparkles } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = 'https://api.loop-gpt.cyou'
 
 interface Message {
   id: string
@@ -398,9 +398,9 @@ export default function Home() {
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         {message.metadata?.mode && message.metadata.mode !== 'ask' && (
                           <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                            {message.metadata.mode === 'plan' && '📋 Plan Mode'}
-                            {message.metadata.mode === 'agentic' && '🤖 Agentic Mode'}
-                            {message.metadata.mode === 'automation' && '⚙️ Automation Mode'}
+                            {message.metadata.mode === 'plan' && 'ðŸ“‹ Plan Mode'}
+                            {message.metadata.mode === 'agentic' && 'ðŸ¤– Agentic Mode'}
+                            {message.metadata.mode === 'automation' && 'âš™ï¸ Automation Mode'}
                           </span>
                         )}
                         {message.toolUsed && message.toolUsed !== 'chat' && (
@@ -521,3 +521,4 @@ export default function Home() {
     </div>
   )
 }
+
